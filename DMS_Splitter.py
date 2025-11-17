@@ -213,19 +213,42 @@ def download_parse_and_split_pdfs(manifest_gcs_path: str, local_input_folder: st
                 page_end = None
 
                 # 케이스 1: pageSpans 사용 (start/end 또는 startIndex/endIndex)
+                # [수정] 모든 pageSpans를 확인하여 전체 페이지 범위 추출
                 page_spans = page_anchor.get('pageSpans')
                 if page_spans and len(page_spans) > 0:
-                    span = page_spans[0]
-                    print(f"       [DEBUG] pageSpans[0]: {json.dumps(span, indent=2, ensure_ascii=False)}")
+                    print(f"       [DEBUG] pageSpans 개수: {len(page_spans)}")
+                    print(f"       [DEBUG] pageSpans 전체: {json.dumps(page_spans, indent=2, ensure_ascii=False)}")
 
-                    # start/end 형식 (문자열일 수도 있음)
-                    if 'start' in span:
-                        page_start = int(span['start']) if span['start'] is not None else None
-                        page_end = int(span.get('end', page_start + 1)) if span.get('end') is not None else page_start + 1
-                    # startIndex/endIndex 형식
-                    elif 'startIndex' in span:
-                        page_start = int(span['startIndex']) if span['startIndex'] is not None else None
-                        page_end = int(span.get('endIndex', page_start + 1)) if span.get('endIndex') is not None else page_start + 1
+                    all_pages = []  # 모든 페이지 번호 수집
+
+                    # 모든 span을 순회하면서 페이지 범위 수집
+                    for span_idx, span in enumerate(page_spans):
+                        span_start = None
+                        span_end = None
+
+                        # start/end 형식 (문자열일 수도 있음)
+                        if 'start' in span:
+                            span_start = int(span['start']) if span['start'] is not None else None
+                            span_end = int(span.get('end', span_start + 1)) if span.get('end') is not None else span_start + 1
+                        # startIndex/endIndex 형식
+                        elif 'startIndex' in span:
+                            span_start = int(span['startIndex']) if span['startIndex'] is not None else None
+                            span_end = int(span.get('endIndex', span_start + 1)) if span.get('endIndex') is not None else span_start + 1
+
+                        # 페이지 범위를 리스트에 추가
+                        if span_start is not None and span_end is not None:
+                            for page_num in range(span_start, span_end):
+                                all_pages.append(page_num)
+                            print(f"       [DEBUG] span[{span_idx}]: 페이지 {span_start}~{span_end-1} 추가")
+
+                    # 수집된 모든 페이지에서 최소/최대 찾기
+                    if all_pages:
+                        page_start = min(all_pages)
+                        page_end = max(all_pages) + 1  # exclusive end
+                        print(f"       [DEBUG] 최종 페이지 범위: {page_start}~{page_end-1} (총 {page_end - page_start}페이지)")
+                    else:
+                        page_start = None
+                        page_end = None
 
                 # 케이스 2: pageRefs 사용 (개별 페이지 참조)
                 if page_start is None:
