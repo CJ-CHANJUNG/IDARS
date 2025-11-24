@@ -1,3 +1,51 @@
-*.json
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Data & Documents (User Request)
+*.pdf
+*.csv
+*.xlsx
+*.xls
+Data/
+excel data/
+dms_debug.log
+*.log
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Credentials & Secrets
+.env
+document-ai-gcs-connector-key.json
+*.json
+
+# Allow specific JSONs if needed (optional, but blocking all *.json as per current file)
+!package.json
+!frontend/package.json
+!tsconfig.json
+!frontend/tsconfig.json
+!jsconfig.json
+!frontend/jsconfig.json

@@ -1,0 +1,66 @@
+.project-list-modal {
+    max-width: 800px;
+    width: 90%;
+}
+
+.project-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.project-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.project-table th,
+.project-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.project-table th {
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+.project-table tr:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.project-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.status-badge.new {
+    background-color: #e0f2fe;
+    color: #0284c7;
+}
+
+.status-badge.progress {
+    background-color: #fef3c7;
+    color: #d97706;
+}
+
+.status-badge.confirmed {
+    background-color: #dcfce7;
+    color: #16a34a;
+}
+
+.action-button.small {
+    padding: 4px 12px;
+    font-size: 0.875rem;
+}
