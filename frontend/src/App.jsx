@@ -7,6 +7,7 @@ import DataImportModal from './components/DataImportModal'
 import ProjectListModal from './components/ProjectListModal'
 import PDFViewerModal from './components/PDFViewerModal'
 import EvidenceUploadModal from './components/EvidenceUploadModal'
+import ComparisonTable from './components/ComparisonTable'
 
 import './App.css'
 
@@ -798,24 +799,37 @@ function App() {
   };
 
   const loadStep3ExtractionData = async () => {
-    if (!project) return;
+    console.log('[STEP3 LOAD] Starting loadStep3ExtractionData');
+    if (!project) {
+      console.warn('[STEP3 LOAD] No project found, aborting');
+      return;
+    }
+    console.log('[STEP3 LOAD] Project ID:', project.id);
 
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/step3/extraction-data`);
+      const url = `http://127.0.0.1:5000/api/projects/${project.id}/step3/extraction-data`;
+      console.log('[STEP3 LOAD] Fetching from:', url);
+      const response = await fetch(url);
+      console.log('[STEP3 LOAD] Response status:', response.status, response.ok);
+
       if (response.ok) {
         const result = await response.json();
-        console.log('[STEP3] Extraction data loaded:', result);
+        console.log('[STEP3 LOAD] ✅ Extraction data loaded:', result);
+        console.log('[STEP3 LOAD] Data count:', result.data ? result.data.length : 0);
+        if (result.data && result.data.length > 0) {
+          console.log('[STEP3 LOAD] First row sample:', result.data[0]);
+        }
         setExtractionData(result.data);
 
         if (result.missing_fields && result.missing_fields.length > 0) {
-          console.warn('[STEP3] Missing fields:', result.missing_fields);
+          console.warn('[STEP3 LOAD] Missing fields:', result.missing_fields);
         }
       } else {
         const error = await response.json();
-        console.error('[STEP3] Failed to load extraction data:', error);
+        console.error('[STEP3 LOAD] ❌ Failed to load extraction data:', error);
       }
     } catch (err) {
-      console.error('[STEP3] Error:', err);
+      console.error('[STEP3 LOAD] ❌ Exception:', err);
     }
   };
 
@@ -1222,36 +1236,64 @@ function App() {
   }
 
   const handleExtract = async () => {
-    if (!tableRef.current) return;
-    const selectedRows = tableRef.current.getSelectedRows();
+    console.log('[EXTRACT BUTTON] handleExtract called');
+    console.log('[EXTRACT BUTTON] Project:', project);
+    console.log('[EXTRACT BUTTON] extractionData length:', extractionData.length);
 
-    if (selectedRows.length === 0) {
-      alert('추출할 항목을 선택해주세요.');
+    if (!project) {
+      console.error('[EXTRACT BUTTON] ❌ No project found');
+      alert('프로젝트가 선택되지 않았습니다.');
       return;
     }
 
+    const billingDocs = extractionData.map(row => row['Billing Document']).filter(doc => doc);
+    console.log('[EXTRACT BUTTON] Billing documents to extract:', billingDocs);
+    console.log('[EXTRACT BUTTON] Count:', billingDocs.length);
+
+    if (billingDocs.length === 0) {
+      console.warn('[EXTRACT BUTTON] ⚠️ No documents to extract');
+      alert('추출할 문서가 없습니다. Step 1에서 데이터를 확정해주세요.');
+      return;
+    }
+
+    console.log(`[EXTRACT BUTTON] Starting extraction for ${billingDocs.length} documents...`);
     setIsLoading(true);
     try {
-      const selectedIds = selectedRows.map(row => row['Billing Document'] || row['전표번호']);
-      const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/step3/extract`, {
+      const url = `http://127.0.0.1:5000/api/projects/${project.id}/step3/extract`;
+      const payload = { selectedIds: billingDocs };
+      console.log('[EXTRACT BUTTON] POST to:', url);
+      console.log('[EXTRACT BUTTON] Payload:', payload);
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectedIds })
+        body: JSON.stringify(payload)
       });
+
+      console.log('[EXTRACT BUTTON] Response status:', response.status, response.ok);
 
       if (response.ok) {
         const result = await response.json();
-        alert(`추출 완료!\n선택: ${result.total_processed}건\n성공: ${result.total_success}건\n전체 누적: ${result.total_accumulated}건`);
-        loadStep3ExtractionData(); // Reload data
+        console.log('[EXTRACT BUTTON] ✅ Result:', result);
+        alert(`✅ 추출 완료!\n\n처리된 문서: ${result.total_processed}개\n성공: ${result.total_success}개`);
+        console.log('[EXTRACT BUTTON] Reloading extraction data...');
+        await loadStep3ExtractionData();
+        console.log('[EXTRACT BUTTON] ✅ Reload complete');
       } else {
-
-        const error = await response.json();
-        alert(`추출 실패: ${error.error} `);
+        const errorText = await response.text();
+        console.error('[EXTRACT BUTTON] ❌ Error response:', errorText);
+        try {
+          const error = JSON.parse(errorText);
+          alert(`추출 실패: ${error.error}`);
+        } catch {
+          alert(`추출 실패: ${errorText}`);
+        }
       }
     } catch (err) {
-      console.error(err);
-      alert('데이터 추출 중 오류가 발생했습니다.');
+      console.error('[EXTRACT BUTTON] ❌ Exception:', err);
+      alert(`데이터 추출 요청 중 오류가 발생했습니다: ${err.message}`);
     } finally {
+      console.log('[EXTRACT BUTTON] Finished, setting loading to false');
       setIsLoading(false);
     }
   };
@@ -1881,38 +1923,14 @@ function App() {
                   </div>
 
                   <div className="workspace-content" style={{ padding: '1.5rem' }}>
-                    {extractionData.length === 0 ? (
-                      <div className="empty-state">
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
-                        <h4 style={{ margin: '0 0 0.5rem 0', color: '#475569' }}>데이터가 없습니다</h4>
-                        <p style={{ margin: 0 }}>Step 1에서 전표를 확정해주세요.</p>
-                      </div>
-                    ) : (
-                      <LedgerTable
-                        ref={tableRef}
-                        data={extractionData}
-                        onDataChange={() => { }} // Read-only
-                        isLoading={isLoading}
-                        visibleColumns={[
-                          'Billing Document',
-                          'Billing Date',
-                          'Incoterms',
-                          'Billed Quantity',
-                          'Sales Unit',
-                          'Document Currency',
-                          'Amount',
-                          'Extracted Incoterms',
-                          'Extracted Quantity',
-                          'Extracted Amount',
-                          'Extracted Date'
-                        ]}
-                        onColumnReorder={() => { }}
-                        isEditMode={true} // Enable selection
-                        headerStyles={step3HeaderStyles}
-                        columnGroups={step3ColumnGroups}
-                        onCellClick={handleCellClick}
-                      />
-                    )}
+                    <ComparisonTable
+                      data={extractionData}
+                      onCellClick={(billingDoc, field, source) => {
+                        handleViewEvidence({ billingDocument: billingDoc },
+                          source === 'Invoice' ? 'Commercial_Invoice' : 'Bill_of_Lading'
+                        );
+                      }}
+                    />
                   </div>
                 </>
               )}
