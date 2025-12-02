@@ -189,11 +189,16 @@ class AdaptedPDFSplitter(OriginalPDFSplitter):
             
     def process(self):
         """
-        Modified process that doesn't copy to Parser folders
+        Modified process that saves files in organized subfolder structure:
+        - extraction_targets/: BL and Invoice (for Step 3 extraction)
+        - others/: All other document types
         """
         self.output_dir.mkdir(parents=True, exist_ok=True)
         groups = self.group_pages()
         saved_files = []
+        
+        # Define extraction target types
+        EXTRACTION_TARGETS = ['Bill_of_Lading', 'Commercial_Invoice']
         
         for grp in groups:
             doc_type = grp['type']
@@ -212,16 +217,30 @@ class AdaptedPDFSplitter(OriginalPDFSplitter):
             else:
                 filename = f"{self.slip_no}_{doc_type}_{page_str}.pdf"
             
-            # Save to output directory only (no Parser copy)
-            save_path = self.output_dir / filename
+            # Determine subfolder based on document type
+            if doc_type in EXTRACTION_TARGETS:
+                subfolder = 'extraction_targets'
+            else:
+                subfolder = 'others'
+            
+            # Create subfolder and save file
+            subfolder_path = self.output_dir / subfolder
+            subfolder_path.mkdir(parents=True, exist_ok=True)
+            
+            save_path = subfolder_path / filename
             out_pdf.save(str(save_path))
             out_pdf.close()
             
             saved_files.append({
-                "file_name": filename, "slip_no": self.slip_no, "document_type": doc_type,
-                "page_range": [start, end], "document_id": grp['id'], "classification_log": grp['log']
+                "file_name": filename, 
+                "slip_no": self.slip_no, 
+                "document_type": doc_type,
+                "subfolder": subfolder,  # Track which subfolder it went to
+                "page_range": [start, end], 
+                "document_id": grp['id'], 
+                "classification_log": grp['log']
             })
-            print(f" ✅ Saved: {filename}")
+            print(f" ✅ Saved: {subfolder}/{filename}")
             
         return saved_files
 

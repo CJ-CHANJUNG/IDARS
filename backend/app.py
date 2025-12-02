@@ -1,25 +1,31 @@
 from flask import Flask, jsonify, request, send_from_directory
 from pathlib import Path
 from flask_cors import CORS
-import pandas as pd
-import os
-import sys
-import json
-import shutil
-import re
-import subprocess
-from datetime import datetime
 from threading import Timer
 import webbrowser
-import ctypes
-import time
-from logic.step_manager import StepManager
+import pandas as pd
+from datetime import datetime
+import re
+import shutil
+import json
+import os
+import sys
 
-# Define the static folder path
+# Add project root to sys.path to allow importing Modules
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(BASE_DIR)
+
+from logic.step_manager import StepManager
+from logic.reconciliation import ReconciliationManager
+
 FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'dist')
 
 app = Flask(__name__, static_folder=FRONTEND_DIST, static_url_path='')
 CORS(app)
+
+# Register API blueprints (AFTER app creation)
+from api.step3_integrated_api import step3_integrated_bp
+app.register_blueprint(step3_integrated_bp)
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'Data', 'raw')
@@ -34,6 +40,7 @@ if not os.path.exists(PROJECTS_DIR):
 
 # Initialize StepManager
 step_manager = StepManager(PROJECTS_DIR)
+reconciliation_manager = ReconciliationManager()
 
 # Global storage for async operation progress
 download_progress = {}
@@ -604,6 +611,26 @@ def confirm_step2(project_id):
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/projects/<project_id>/confirm-step4', methods=['POST'])
+def confirm_step4(project_id):
+    """Confirm Step 4 reconciliation results and complete project"""
+    try:
+        data = request.json
+        reconciliation_data = data.get('reconciliationData', {})
+        
+        # Save reconciliation results and confirm Step 4
+        metadata = step_manager.confirm_step4(project_id, reconciliation_data)
+        
+        return jsonify({
+            "status": "success",
+            "message": "Step 4 confirmed - Project completed!",
+            "metadata": metadata
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/projects/<project_id>/files/list', methods=['GET'])
 def list_project_files(project_id):
     """List files in a specific project subdirectory"""
@@ -638,16 +665,32 @@ def search_evidence(project_id):
         
         results = []
         
-        # 1. Check split_documents (Priority)
+        # 1. Check split_documents (Priority) - Support new folder structure
         split_dir = os.path.join(evidence_dir, 'split_documents', billing_doc)
         if os.path.exists(split_dir):
-            for f in os.listdir(split_dir):
-                if f.lower().endswith('.pdf'):
-                    results.append({
-                        "type": "split",
-                        "filename": f,
-                        "path": f"step2_evidence_collection/split_documents/{billing_doc}/{f}"
-                    })
+            # Check new subfolder structure first
+            has_subfolders = False
+            for subfolder in ['extraction_targets', 'others']:
+                subfolder_path = os.path.join(split_dir, subfolder)
+                if os.path.exists(subfolder_path) and os.path.isdir(subfolder_path):
+                    has_subfolders = True
+                    for f in os.listdir(subfolder_path):
+                        if f.lower().endswith('.pdf'):
+                            results.append({
+                                "type": "split",
+                                "filename": f,
+                                "path": f"step2_evidence_collection/split_documents/{billing_doc}/{subfolder}/{f}"
+                            })
+            
+            # Fallback: Check root folder for backward compatibility
+            if not has_subfolders:
+                for f in os.listdir(split_dir):
+                    if f.lower().endswith('.pdf'):
+                        results.append({
+                            "type": "split",
+                            "filename": f,
+                            "path": f"step2_evidence_collection/split_documents/{billing_doc}/{f}"
+                        })
         
         # 2. Check DMS_Downloads (Fallback) if no split files found (or always?)
         # User might want to see originals even if split exists. Let's return both.
@@ -734,7 +777,9 @@ def get_evidence_status(project_id):
             
             return 'Other'
 
-        # 1. Scan Split Documents
+        # 1. Scan Split Documents - Support new folder structure
+        # New structure: split_documents/{billing_doc}/extraction_targets/ and /others/
+        # Old structure: split_documents/{billing_doc}/*.pdf (backward compatibility)
         split_base = os.path.join(evidence_dir, 'split_documents')
         if os.path.exists(split_base):
             for billing_doc in os.listdir(split_base):
@@ -742,16 +787,35 @@ def get_evidence_status(project_id):
                 if os.path.isdir(doc_path):
                     status_map[billing_doc] = status_map.get(billing_doc, {'split': False, 'original': False, 'types': []})
                     
-                    files = [f for f in os.listdir(doc_path) if f.lower().endswith('.pdf')]
-                    if files:
-                        status_map[billing_doc]['split'] = True
-                        for f in files:
-                            doc_type = get_doc_type(f)
-                            if doc_type not in status_map[billing_doc]['types']:
-                                status_map[billing_doc]['types'].append(doc_type)
-                                print(f"[DEBUG] Found {doc_type} for {billing_doc}: {f}")
+                    # Check new subfolder structure first
+                    has_subfolders = False
+                    for subfolder in ['extraction_targets', 'others']:
+                        subfolder_path = os.path.join(doc_path, subfolder)
+                        if os.path.exists(subfolder_path) and os.path.isdir(subfolder_path):
+                            has_subfolders = True
+                            files = [f for f in os.listdir(subfolder_path) if f.lower().endswith('.pdf')]
+                            if files:
+                                status_map[billing_doc]['split'] = True
+                                for f in files:
+                                    doc_type = get_doc_type(f)
+                                    if doc_type not in status_map[billing_doc]['types']:
+                                        status_map[billing_doc]['types'].append(doc_type)
+                                        print(f"[DEBUG] Found {doc_type} for {billing_doc}: {subfolder}/{f}")
+                    
+                    # Fallback: Check root folder for backward compatibility (old structure)
+                    if not has_subfolders:
+                        files = [f for f in os.listdir(doc_path) if f.lower().endswith('.pdf')]
+                        if files:
+                            status_map[billing_doc]['split'] = True
+                            for f in files:
+                                doc_type = get_doc_type(f)
+                                if doc_type not in status_map[billing_doc]['types']:
+                                    status_map[billing_doc]['types'].append(doc_type)
+                                    print(f"[DEBUG] Found {doc_type} for {billing_doc}: {f} (old structure)")
 
-        # 2. Scan DMS Downloads (Originals) - Improved detection
+        # 2. Scan DMS Downloads (Originals) - DO NOT classify types
+        # Original files are just evidence existence indicators
+        # Type classification happens ONLY after split
         dms_base = os.path.join(evidence_dir, 'DMS_Downloads')
         if os.path.exists(dms_base):
             print(f"[DEBUG] Scanning DMS directory: {dms_base}")
@@ -773,6 +837,7 @@ def get_evidence_status(project_id):
                         if billing_doc:
                             status_map[billing_doc] = status_map.get(billing_doc, {'split': False, 'original': False, 'types': []})
                             status_map[billing_doc]['original'] = True
+                            # ✅ DO NOT classify doc type for originals - only for split files
                             print(f"[DEBUG] Found DMS file for {billing_doc}: {f}")
         
         print(f"[DEBUG] Evidence status for {len(status_map)} documents")
@@ -808,31 +873,36 @@ def upload_evidence(project_id):
         return jsonify({"error": "No selected file"}), 400
         
     try:
-        # Define output directory: step2_evidence_collection/split_documents/<billing_doc>/
+        # Define output directory: step2_evidence_collection/DMS_Downloads/
         project_dir = os.path.join(PROJECTS_DIR, project_id)
-        output_dir = os.path.join(project_dir, 'step2_evidence_collection', 'split_documents', billing_doc)
+        output_dir = os.path.join(project_dir, 'step2_evidence_collection', 'DMS_Downloads')
         os.makedirs(output_dir, exist_ok=True)
         
-        # Generate filename: manual_<timestamp>.pdf
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"manual_{timestamp}.pdf"
+        # Generate filename: <billing_doc>_<original_filename>
+        # This preserves keywords for get_doc_type (e.g. "Invoice", "Packing List")
+        # and ensures association with billing_doc
+        safe_original_name = sanitize_filename(file.filename)
+        filename = f"{billing_doc}_{safe_original_name}"
         save_path = os.path.join(output_dir, filename)
         
         file.save(save_path)
         
-        # Generate thumbnail
+        # Generate thumbnail (Optional, but good for UI if it supports originals)
+        # Note: ProjectPDFSplitter might expect files in split_documents for thumbnails, 
+        # but we'll try to generate it anyway if the method supports paths.
         try:
             sys.path.insert(0, os.path.join(BASE_DIR, 'backend'))
             from logic.pdf_splitter_api import ProjectPDFSplitter
             splitter = ProjectPDFSplitter(project_id, PROJECTS_DIR)
+            # We pass the save_path. The type "manual" might need to be adjusted or kept.
             splitter._generate_thumbnail(Path(save_path), billing_doc, "manual")
         except Exception as e:
             print(f"Thumbnail generation failed: {e}")
             
         return jsonify({
             "status": "success",
-            "message": "File uploaded successfully",
-            "filepath": f"step2_evidence_collection/split_documents/{billing_doc}/{filename}"
+            "message": "File uploaded successfully as Original",
+            "filepath": f"step2_evidence_collection/DMS_Downloads/{filename}"
         })
         
     except Exception as e:
@@ -841,15 +911,14 @@ def upload_evidence(project_id):
 def open_browser():
     webbrowser.open_new("http://localhost:5000")
 
-@app.route('/api/projects/<project_id>/step3/extraction-data', methods=['GET'])
-def get_step3_extraction_data(project_id):
-    """Load Step 1 confirmed data merged with Step 3 extraction results"""
+# @app.route('/api/projects/<project_id>/step3/extraction-data', methods=['GET'])
+def get_step3_extraction_data_deprecated(project_id):
+    """Load Step 1 confirmed data merged with Step 3 extraction results in structured format"""
     try:
-        # Load Step 1 confirmed data
+        # Load Step 1 confirmed data (Source A - Ledger)
         step1_confirmed_path = os.path.join(PROJECTS_DIR, project_id, 'step1_invoice_confirmation', 'confirmed_invoices.csv')
         
         if not os.path.exists(step1_confirmed_path):
-            # Try alternative path just in case
             alt_path = os.path.join(PROJECTS_DIR, project_id, 'step1_entry_import', 'confirmed_data.csv')
             if os.path.exists(alt_path):
                 step1_confirmed_path = alt_path
@@ -860,21 +929,32 @@ def get_step3_extraction_data(project_id):
         df = pd.read_csv(step1_confirmed_path)
         df = df.fillna('')
         
-        # Normalize column names to match frontend expectations
+        # Normalize column names
         column_mapping = {}
         for col in df.columns:
-            if col.lower() == 'sales unit':
+            col_lower = col.lower()
+            if col_lower == 'sales unit':
                 column_mapping[col] = 'Sales Unit'
-            elif col.lower() == 'billing document':
+            elif col_lower == 'billing document':
                 column_mapping[col] = 'Billing Document'
             elif col == '전표번호':
                 column_mapping[col] = 'Billing Document'
+            elif col_lower in ['billing date', '청구일']:
+                column_mapping[col] = 'Billing Date'
+            elif col_lower == 'incoterms':
+                column_mapping[col] = 'Incoterms'
+            elif col_lower in ['billed quantity', '청구수량']:
+                column_mapping[col] = 'Billed Quantity'
+            elif col_lower in ['amount', '금액']:
+                column_mapping[col] = 'Amount'
+            elif col_lower in ['document currency', '통화']:
+                column_mapping[col] = 'Document Currency'
         
         if column_mapping:
             df = df.rename(columns=column_mapping)
             print(f"[STEP3] Normalized columns: {column_mapping}")
         
-        # Load Step 3 extraction results if they exist
+        # Load extraction results (Source B - Invoice, Source C - B/L)
         step3_results_path = os.path.join(PROJECTS_DIR, project_id, 'step3_data_extraction', 'extraction_results.json')
         extraction_results = {}
         
@@ -887,36 +967,75 @@ def get_step3_extraction_data(project_id):
                 print(f"[STEP3] Error loading extraction results: {e}")
         
         # Find billing document column
-        billing_col = None
-        for col in df.columns:
-            if col.lower() in ['billing document', 'billingdocument', '전표번호']:
-                billing_col = col
-                break
+        billing_col = 'Billing Document'
+        if billing_col not in df.columns:
+            # Try to find it
+            for col in df.columns:
+                if col.lower() in ['billing document', 'billingdocument', '전표번호']:
+                    billing_col = col
+                    break
         
-        if not billing_col:
+        if billing_col not in df.columns:
             return jsonify({"error": "Billing Document column not found in Step 1 data"}), 400
         
-        # Merge extraction results with Step 1 data
+        # Helper function to extract value from dict or return as-is
+        def get_val(val):
+            if isinstance(val, dict) and 'value' in val:
+                return val['value']
+            return val if val else ''
+        
+        # Build structured comparison data
         data = []
         for _, row in df.iterrows():
-            row_dict = row.to_dict()
-            billing_doc = str(row_dict.get(billing_col, '')).strip()
+            billing_doc = str(row.get(billing_col, '')).strip()
             
-            # Add extracted fields
+            # Source A - Ledger data
+            sourceA = {
+                'Date': str(row.get('Billing Date', '')),
+                'Incoterms': str(row.get('Incoterms', '')),
+                'Quantity': str(row.get('Billed Quantity', '')),
+                'Sales Unit': str(row.get('Sales Unit', '')),
+                'Amount': str(row.get('Amount', '')),
+                'Currency': str(row.get('Document Currency', ''))
+            }
+            
+            # Source B - Invoice extraction
+            sourceB = {
+                'Date': '',  # On Board Date
+                'Incoterms': '',
+                'Quantity': '',
+                'Amount': '',
+                'Currency': ''
+            }
+            
+            # Source C - B/L extraction
+            sourceC = {
+                'Date': '',  # B/L Date
+                'Incoterms': '',
+                'Quantity': ''
+            }
+            
+            # Populate from extraction results if available
             if billing_doc in extraction_results:
                 extracted = extraction_results[billing_doc]
-                row_dict['Extracted Incoterms'] = extracted.get('Extracted Incoterms', '')
-                row_dict['Extracted Quantity'] = extracted.get('Extracted Quantity', '')
-                row_dict['Extracted Amount'] = extracted.get('Extracted Amount', '')
-                row_dict['Extracted Date'] = extracted.get('Extracted Date', '')
-            else:
-                # No extraction data yet
-                row_dict['Extracted Incoterms'] = ''
-                row_dict['Extracted Quantity'] = ''
-                row_dict['Extracted Amount'] = ''
-                row_dict['Extracted Date'] = ''
+                
+                # For now, we only have Invoice extraction (sourceB)
+                # Assuming extraction_results contains Invoice data
+                sourceB['Date'] = get_val(extracted.get('Extracted Date', ''))  # On Board Date
+                sourceB['Incoterms'] = get_val(extracted.get('Extracted Incoterms', ''))
+                sourceB['Quantity'] = get_val(extracted.get('Extracted Quantity', ''))
+                sourceB['Amount'] = get_val(extracted.get('Extracted Amount', ''))
+                sourceB['Currency'] = get_val(extracted.get('Extracted Currency', ''))
+                
+                # TODO: Add B/L extraction when available
+                # sourceC would be populated from B/L extraction results
             
-            data.append(row_dict)
+            data.append({
+                'Billing Document': billing_doc,
+                'sourceA': sourceA,
+                'sourceB': sourceB,
+                'sourceC': sourceC
+            })
         
         return jsonify({
             "status": "success",
@@ -991,7 +1110,8 @@ def extract_step3_data(project_id):
         
         for doc_id in selected_ids:
             # doc_id is already a string from the conversion above
-            doc_dir = os.path.join(split_dir, doc_id)
+            # PDFs are in the extraction_targets subfolder
+            doc_dir = os.path.join(split_dir, doc_id, 'extraction_targets')
             log(f"\n[EXTRACT] ====== Processing {doc_id} ======")
             log(f"[EXTRACT] Looking in directory: {doc_dir}")
             
@@ -1108,6 +1228,106 @@ def extract_step3_data(project_id):
             "total_accumulated": len(results)  # Also return total accumulated
         })
 
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/projects/<project_id>/confirm-step3', methods=['POST'])
+def confirm_step3(project_id):
+    print(f"[DEBUG] confirm_step3 called for project {project_id}")
+    try:
+        data = request.json
+        print(f"[DEBUG] Payload received: {len(data.get('extractionData', []))} items")
+        extraction_data = data.get('extractionData', [])
+        metadata = step_manager.confirm_step3(project_id, extraction_data)
+        print(f"[DEBUG] Step 3 confirmed. Metadata updated.")
+        return jsonify({
+            "status": "success",
+            "message": "Step 3 confirmed",
+            "metadata": metadata
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/projects/<project_id>/step4/run', methods=['GET'])
+def run_step4_reconciliation(project_id):
+    print(f"[DEBUG] run_step4_reconciliation called for {project_id}")
+    try:
+        # 1. Load Step 1 Data (Confirmed Ledger)
+        metadata = step_manager.load_metadata(project_id)
+        project_path = os.path.join(PROJECTS_DIR, project_id)
+        
+        # Correct path for Step 1 data (CSV)
+        step1_file = os.path.join(project_path, 'step1_invoice_confirmation', 'confirmed_invoices.csv')
+        
+        step1_data = []
+        if os.path.exists(step1_file):
+             try:
+                df = pd.read_csv(step1_file)
+                step1_data = df.to_dict('records')
+             except Exception as e:
+                 print(f"[ERROR] Failed to read Step 1 CSV: {e}")
+        
+        print(f"[DEBUG] Loaded Step 1 Data: {len(step1_data)} items")
+        
+        # 2. Load Step 3 Data (Extracted)
+        step3_file = os.path.join(project_path, 'step3_data_extraction', 'extracted_data.json') # Changed to extracted_data.json (confirmed)
+        # Wait, confirm_step3 saves to 'extracted_data.json'. 
+        # But previously I might have been reading 'extraction_results.json'.
+        # Let's check confirm_step3 implementation.
+        # It saves to 'extracted_data.json'.
+        # So we should read from there.
+        
+        step3_data = {}
+        if os.path.exists(step3_file):
+            with open(step3_file, 'r', encoding='utf-8') as f:
+                step3_data_list = json.load(f)
+                # Convert list to dict keyed by Billing Document if it's a list
+                if isinstance(step3_data_list, list):
+                     for item in step3_data_list:
+                         key = item.get('Billing Document') or item.get('billing_document')
+                         if key:
+                             step3_data[str(key)] = item
+                else:
+                    step3_data = step3_data_list
+        else:
+             print(f"[DEBUG] Step 3 file not found: {step3_file}")
+             # Fallback to extraction_results.json if confirmed not found?
+             step3_fallback = os.path.join(project_path, 'step3_data_extraction', 'extraction_results.json')
+             if os.path.exists(step3_fallback):
+                 print(f"[DEBUG] Falling back to extraction_results.json")
+                 with open(step3_fallback, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # extraction_results.json structure might be {data: [...], ...} or just [...]
+                    if isinstance(data, dict) and 'data' in data:
+                        step3_data_list = data['data']
+                    else:
+                        step3_data_list = data
+                    
+                    if isinstance(step3_data_list, list):
+                        for item in step3_data_list:
+                            key = item.get('Billing Document') or item.get('billing_document')
+                            if key:
+                                step3_data[str(key)] = item
+
+        print(f"[DEBUG] Loaded Step 3 Data: {len(step3_data)} items")
+        
+        # 3. Run Comparison
+        results = reconciliation_manager.compare_data(step1_data, step3_data)
+        print(f"[DEBUG] Comparison Results: {len(results)} items")
+        
+        return jsonify({
+            "status": "success",
+            "results": results,
+            "summary": {
+                "total": len(results),
+                "matched": sum(1 for r in results if r['Status'] == 'MATCH'),
+                "mismatched": sum(1 for r in results if r['Status'] == 'MISMATCH'),
+                "missing": sum(1 for r in results if r['Status'] == 'MISSING_EVIDENCE')
+            }
+        })
+        
     except Exception as e:
         import traceback
         traceback.print_exc()

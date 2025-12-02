@@ -42,6 +42,9 @@ dms_debug.log
 document-ai-gcs-connector-key.json
 *.json
 
+# API Keys (보안)
+Config/api_config.py
+
 # Allow specific JSONs if needed (optional, but blocking all *.json as per current file)
 !package.json
 !frontend/package.json
@@ -49,3 +52,4 @@ document-ai-gcs-connector-key.json
 !frontend/tsconfig.json
 !jsconfig.json
 !frontend/jsconfig.json
+!Config/extraction_config.json

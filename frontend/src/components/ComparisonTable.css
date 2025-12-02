@@ -1,0 +1,259 @@
+.comparison-table-container {
+    width: 100%;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+/* Legend */
+.comparison-legend {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #475569;
+}
+
+.legend-item strong {
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.legend-icon {
+    font-size: 1.2rem;
+}
+
+.legend-item.source-a strong {
+    color: #3B82F6;
+}
+
+.legend-item.source-b strong {
+    color: #EF4444;
+}
+
+.legend-item.source-c strong {
+    color: #F59E0B;
+}
+
+/* Table wrapper */
+.comparison-table-wrapper {
+    overflow-x: auto;
+    max-height: calc(100vh - 300px);
+}
+
+/* Table */
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    position: relative;
+}
+
+/* Headers */
+.comparison-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: white;
+}
+
+.main-header-row th {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    color: #1e293b;
+    font-weight: 700;
+    padding: 0.75rem 0.5rem;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    font-size: 0.8125rem;
+}
+
+.header-subtitle {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #64748b;
+    margin-top: 0.25rem;
+}
+
+.billing-doc-header {
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+    color: white !important;
+    min-width: 120px;
+    font-size: 0.875rem;
+}
+
+.billing-doc-header .header-subtitle {
+    color: #dbeafe;
+}
+
+.field-group-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    font-weight: 600;
+}
+
+/* Sub-column headers */
+.sub-header-row th {
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.8125rem;
+}
+
+.source-a-header {
+    background: #DBEAFE;
+    color: #1e40af;
+}
+
+.source-b-header {
+    background: #FEE2E2;
+    color: #991b1b;
+}
+
+.source-c-header {
+    background: #FED7AA;
+    color: #9a3412;
+}
+
+.sub-col {
+    min-width: 80px;
+}
+
+/* Body */
+.comparison-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.even-row {
+    background: white;
+}
+
+.odd-row {
+    background: #f9fafb;
+}
+
+.comparison-table tbody tr:hover {
+    background: #f0f9ff !important;
+}
+
+/* Cells */
+.data-cell {
+    padding: 0.75rem 0.5rem;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    vertical-align: middle;
+    color: #334155;
+}
+
+.billing-doc-cell {
+    padding: 0.75rem 0.5rem;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    font-weight: 600;
+    color: #1e293b;
+    background: #f8fafc;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+}
+
+.source-a-cell {
+    background: rgba(219, 234, 254, 0.15);
+    border-left: 2px solid #93c5fd;
+}
+
+.source-b-cell {
+    background: rgba(254, 226, 226, 0.15);
+    border-left: 2px solid #fca5a5;
+}
+
+.source-c-cell {
+    background: rgba(254, 215, 170, 0.15);
+    border-left: 2px solid #fdba74;
+    border-right: 2px solid #cbd5e1;
+}
+
+/* Clickable cells */
+.data-cell.clickable {
+    cursor: pointer;
+    position: relative;
+}
+
+.data-cell.clickable:hover {
+    background: rgba(59, 130, 246, 0.1);
+    font-weight: 600;
+}
+
+.data-cell.clickable::after {
+    content: '🔍';
+    opacity: 0;
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    transition: opacity 0.2s ease;
+}
+
+.data-cell.clickable:hover::after {
+    opacity: 0.6;
+}
+
+/* Empty state */
+.empty-state {
+    padding: 3rem;
+    text-align: center;
+    color: #94a3b8;
+}
+
+/* Match indicators */
+.match-indicator {
+    display: inline-block;
+    margin-left: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.match-indicator.match {
+    color: #10b981;
+}
+
+.match-indicator.mismatch {
+    color: #f59e0b;
+}
+
+/* Responsive */
+@media (max-width: 1400px) {
+    .comparison-table {
+        font-size: 0.8125rem;
+    }
+
+    .sub-col {
+        min-width: 70px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .comparison-legend {
+        gap: 1rem;
+        font-size: 0.8125rem;
+    }
+
+    .comparison-table {
+        font-size: 0.75rem;
+    }
+
+    .sub-col {
+        min-width: 60px;
+    }
+}

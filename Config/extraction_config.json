@@ -1,0 +1,290 @@
+{
+    "extraction_modes": {
+        "basic": {
+            "description": "기본 모드 - 필수 필드만 추출 (빠른 대사용)",
+            "document_types": {
+                "BL": {
+                    "description": "Bill of Lading - 선하증권 (기본)",
+                    "fields": [
+                        {
+                            "name": "on_board_date",
+                            "label": "선적일",
+                            "prompt": "선적일을 찾아주세요. 'Date of Issue'가 아닌 'On Board Date', 'Laden on Board the Vessel' 등의 실제 선적일을 추출해주세요. YYYY-MM-DD 형식으로 반환.",
+                            "output_format": {
+                                "value": "YYYY-MM-DD",
+                                "format": "date"
+                            }
+                        },
+                        {
+                            "name": "quantity",
+                            "label": "수량",
+                            "prompt": "총 수량을 찾아주세요.",
+                            "output_format": {
+                                "value": 0,
+                                "unit": "MT"
+                            }
+                        },
+                        {
+                            "name": "incoterms",
+                            "label": "인코텀즈",
+                            "prompt": "인코텀즈(CIF, FOB, DAP 등)를 찾아주세요.",
+                            "output_format": {
+                                "value": "CIF",
+                                "format": "text"
+                            }
+                        }
+                    ]
+                },
+                "INVOICE": {
+                    "description": "Commercial Invoice - 상업송장 (기본)",
+                    "fields": [
+                        {
+                            "name": "on_board_date",
+                            "label": "선적일",
+                            "prompt": "선적일(On Board Date 또는 Sailing Date)을 찾아주세요. YYYY-MM-DD 형식으로 반환.",
+                            "output_format": {
+                                "value": "YYYY-MM-DD",
+                                "format": "date"
+                            }
+                        },
+                        {
+                            "name": "quantity",
+                            "label": "수량",
+                            "prompt": "총 수량을 찾아주세요.",
+                            "output_format": {
+                                "value": 0,
+                                "unit": "MT"
+                            }
+                        },
+                        {
+                            "name": "amount",
+                            "label": "금액",
+                            "prompt": "총 금액을 찾아주세요.",
+                            "output_format": {
+                                "value": 0,
+                                "currency": "USD"
+                            }
+                        },
+                        {
+                            "name": "incoterms",
+                            "label": "인코텀즈",
+                            "prompt": "인코텀즈(CIF, FOB, DAP, EXW 등)를 찾아주세요.",
+                            "output_format": {
+                                "value": "CIF",
+                                "format": "text"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "detailed": {
+            "description": "상세 모드 - 모든 필드 추출 (상세 분석용)",
+            "document_types": {
+                "BL": {
+                    "description": "Bill of Lading - 선하증권 (상세)",
+                    "fields": [
+                        {
+                            "name": "on_board_date",
+                            "label": "선적일",
+                            "prompt": "선적일을 찾아주세요. 'Date of Issue'가 아닌 'On Board Date', 'Laden on Board the Vessel' 등의 실제 선적일을 추출해주세요.",
+                            "output_format": {
+                                "value": "YYYY-MM-DD",
+                                "format": "date"
+                            }
+                        },
+                        {
+                            "name": "quantity",
+                            "label": "수량",
+                            "prompt": "총 수량을 찾아주세요.",
+                            "output_format": {
+                                "value": 0,
+                                "unit": "MT"
+                            }
+                        },
+                        {
+                            "name": "incoterms",
+                            "label": "인코텀즈",
+                            "prompt": "인코텀즈를 찾아주세요.",
+                            "output_format": {
+                                "value": "CIF",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "item_description",
+                            "label": "품목명",
+                            "prompt": "품목명(Description of Goods)을 찾아주세요.",
+                            "output_format": {
+                                "value": "품목명",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "bl_number",
+                            "label": "BL 번호",
+                            "prompt": "Bill of Lading Number를 찾아주세요.",
+                            "output_format": {
+                                "value": "BL번호",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "vessel_name",
+                            "label": "선박명",
+                            "prompt": "선박명(Vessel Name)을 찾아주세요.",
+                            "output_format": {
+                                "value": "선박명",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "port_of_loading",
+                            "label": "선적항",
+                            "prompt": "선적항(Port of Loading)을 찾아주세요.",
+                            "output_format": {
+                                "value": "항구명",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "port_of_discharge",
+                            "label": "도착항",
+                            "prompt": "도착항(Port of Discharge)을 찾아주세요.",
+                            "output_format": {
+                                "value": "항구명",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "shipper",
+                            "label": "선적인",
+                            "prompt": "선적인(Shipper) 이름을 찾아주세요.",
+                            "output_format": {
+                                "value": "회사명",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "consignee",
+                            "label": "수하인",
+                            "prompt": "수하인(Consignee) 이름을 찾아주세요.",
+                            "output_format": {
+                                "value": "회사명",
+                                "format": "text"
+                            }
+                        }
+                    ]
+                },
+                "INVOICE": {
+                    "description": "Commercial Invoice - 상업송장 (상세)",
+                    "fields": [
+                        {
+                            "name": "on_board_date",
+                            "label": "선적일",
+                            "prompt": "선적일을 찾아주세요.",
+                            "output_format": {
+                                "value": "YYYY-MM-DD",
+                                "format": "date"
+                            }
+                        },
+                        {
+                            "name": "quantity",
+                            "label": "수량",
+                            "prompt": "총 수량을 찾아주세요.",
+                            "output_format": {
+                                "value": 0,
+                                "unit": "MT"
+                            }
+                        },
+                        {
+                            "name": "amount",
+                            "label": "금액",
+                            "prompt": "총 금액을 찾아주세요.",
+                            "output_format": {
+                                "value": 0,
+                                "currency": "USD"
+                            }
+                        },
+                        {
+                            "name": "incoterms",
+                            "label": "인코텀즈",
+                            "prompt": "인코텀즈를 찾아주세요.",
+                            "output_format": {
+                                "value": "CIF",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "item_description",
+                            "label": "품목명",
+                            "prompt": "품목명을 찾아주세요.",
+                            "output_format": {
+                                "value": "품목명",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "seller",
+                            "label": "판매자",
+                            "prompt": "판매자(Seller) 이름을 찾아주세요.",
+                            "output_format": {
+                                "value": "회사명",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "buyer",
+                            "label": "구매자",
+                            "prompt": "구매자(Applicant/Buyer) 이름을 찾아주세요.",
+                            "output_format": {
+                                "value": "회사명",
+                                "format": "text"
+                            }
+                        },
+                        {
+                            "name": "vessel_name",
+                            "label": "선박명",
+                            "prompt": "선박명(Vessel Name)을 찾아주세요. 없을 경우 null 반환.",
+                            "output_format": {
+                                "value": "선박명",
+                                "format": "text"
+                            },
+                            "optional": true
+                        },
+                        {
+                            "name": "port_of_loading",
+                            "label": "선적항",
+                            "prompt": "선적항을 찾아주세요. 없을 경우 null 반환.",
+                            "output_format": {
+                                "value": "항구명",
+                                "format": "text"
+                            },
+                            "optional": true
+                        },
+                        {
+                            "name": "port_of_discharge",
+                            "label": "도착항",
+                            "prompt": "도착항을 찾아주세요. 없을 경우 null 반환.",
+                            "output_format": {
+                                "value": "항구명",
+                                "format": "text"
+                            },
+                            "optional": true
+                        },
+                        {
+                            "name": "bl_number_on_invoice",
+                            "label": "BL 매수",
+                            "prompt": "Invoice에 기재된 'No. of Original B/L' 값을 찾아주세요. 없을 경우 null 반환.",
+                            "output_format": {
+                                "value": "숫자",
+                                "format": "text"
+                            },
+                            "optional": true
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

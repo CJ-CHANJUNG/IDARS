@@ -60,6 +60,10 @@ DOCUMENT_PATTERNS = {
     'Customs_clearance_Letter': [
         (r'EXPORT\s*DECLARATION', 100), (r'IMPORT\s*DECLARATION', 100), (r'CUSTOMS\s*CLEARANCE', 100),
         (r'수출\s*신고\s*필증', 100), (r'수입\s*신고\s*필증', 100),
+        (r'수출\s*신고', 90), (r'수입\s*신고', 90),  # More flexible matching
+        (r'EP-\d+', 95),  # Export declaration number pattern (e.g., EP-20388156)
+        (r'신고번호', 85),  # Declaration number in Korean
+        (r'통관', 80),  # Customs (generic)
     ],
     'Delivery_Note': [
         (r'DELIVERY\s*NOTE', 100), (r'DELIVERY\s*ORDER', 100), (r'납품서', 100), (r'인수증', 100),
@@ -148,6 +152,7 @@ class PDFSplitter:
                 return re.sub(r'[^A-Z0-9-]', '', val)
         return None
 
+
     def group_pages(self) -> List[Dict]:
         analyses = []
         for i in range(len(self.doc)):
@@ -165,7 +170,15 @@ class PDFSplitter:
                 if doc_type:
                     print(f"    ✅ Rescued! Detected: {doc_type}")
                 else:
-                    print(f"    ❌ OCR also failed. Marking as Etc.")
+                    # 🔥 [FILENAME FALLBACK] OCR도 실패 시 파일명 기반 분류
+                    filename = str(self.pdf_path.name).upper()
+                    if 'EP-' in filename or 'EXPORT' in filename or 'DECLARATION' in filename:
+                        doc_type = 'Customs_clearance_Letter'
+                        conf = 80
+                        method = 'filename_fallback'
+                        print(f"    🔥 Rescued by filename! Detected: {doc_type}")
+                    else:
+                        print(f"    ❌ OCR also failed. Marking as Etc.")
 
             doc_id = self._extract_id(text, doc_type)
             analyses.append({'page': i, 'type': doc_type, 'id': doc_id, 'conf': conf, 'method': method, 'text': text})

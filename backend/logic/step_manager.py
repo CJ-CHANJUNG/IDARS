@@ -1,8 +1,10 @@
 import os
 import json
 import shutil
+import asyncio
 from datetime import datetime
 import pandas as pd
+from Modules.Parser.smart_extraction_engine import SmartExtractionEngine
 
 class StepManager:
     def __init__(self, projects_dir):
@@ -171,6 +173,63 @@ class StepManager:
         self.save_metadata(project_id, metadata)
         return metadata
 
+    def confirm_step3(self, project_id, extraction_data):
+        """Confirm Step 3 Data Extraction"""
+        metadata = self.load_metadata(project_id)
+        
+        # Check if Step 4 is already completed (Future Locking)
+        if metadata['steps']['step4']['status'] == 'completed':
+            raise Exception("Step 4가 이미 확정되었습니다. Step 3를 수정하려면 Step 4 확정을 취소해야 합니다.")
+
+        project_path = self.get_project_path(project_id)
+        # Save confirmed data to the path defined in metadata
+        confirmed_path = os.path.join(project_path, 'step3_data_extraction', 'extracted_data.json')
+        
+        # Save extraction data
+        with open(confirmed_path, 'w', encoding='utf-8') as f:
+            json.dump(extraction_data, f, ensure_ascii=False, indent=2)
+        
+        # Update Metadata
+        metadata['updated_at'] = datetime.now().isoformat()
+        
+        # Step 3 Complete
+        metadata['steps']['step3']['status'] = 'completed'
+        metadata['steps']['step3']['completed_at'] = datetime.now().isoformat()
+        
+        # Step 4 Unlock
+        if metadata['steps']['step4']['status'] == 'locked':
+            metadata['steps']['step4']['status'] = 'pending'
+        
+        metadata['current_step'] = 3
+        
+        self.save_metadata(project_id, metadata)
+        return metadata
+
+    def confirm_step4(self, project_id, reconciliation_data):
+        """Confirm Step 4 Reconciliation Results"""
+        metadata = self.load_metadata(project_id)
+        
+        project_path = self.get_project_path(project_id)
+        confirmed_path = os.path.join(project_path, 'step4_reconciliation', 'reconciliation_results.json')
+        
+        # Save reconciliation results
+        with open(confirmed_path, 'w', encoding='utf-8') as f:
+            json.dump(reconciliation_data, f, ensure_ascii=False, indent=2)
+        
+        # Update Metadata
+        metadata['updated_at'] = datetime.now().isoformat()
+        
+        # Step 4 Complete
+        metadata['steps']['step4']['status'] = 'completed'
+        metadata['steps']['step4']['completed_at'] = datetime.now().isoformat()
+        
+        # Mark project as completed
+        metadata['current_step'] = 4
+        metadata['status'] = 'completed'
+        
+        self.save_metadata(project_id, metadata)
+        return metadata
+
     def unconfirm_step(self, project_id, step_number):
         """Unconfirm a step (Cancel Confirmation)"""
         metadata = self.load_metadata(project_id)
@@ -183,21 +242,34 @@ class StepManager:
             
             metadata['steps']['step1']['status'] = 'pending'
             metadata['steps']['step1']['completed_at'] = None
-            # Step 2 should technically be locked or pending? 
-            # If Step 1 is pending, Step 2 cannot be worked on? 
-            # Usually Step 2 depends on Step 1. So Step 2 should be locked or reset.
-            # But user might want to just edit Step 1 and re-confirm.
-            # Let's keep Step 2 as is, but maybe 'locked' if strict dependency.
-            # For now, just set Step 1 to pending.
+            metadata['current_step'] = 0
             
         elif step_number == 2:
             # Step 2 Unconfirm
             if metadata['steps']['step3']['status'] == 'completed':
-                raise Exception("Step 3가 확정된 상태에서는 Step 2 확정을 취소할 수 없습니다.")
+                raise Exception("Step 3가 확정된 상태에서는 Step 2 확정을 취소할 수 없습니다. 먼저 Step 3 확정을 취소하세요.")
                 
             metadata['steps']['step2']['status'] = 'pending'
             metadata['steps']['step2']['completed_at'] = None
+            metadata['current_step'] = 1
             # Optional: Remove evidence_mapping.json? No, keep it as draft.
+            
+        elif step_number == 3:
+            # Step 3 Unconfirm
+            if metadata['steps']['step4']['status'] == 'completed':
+                raise Exception("Step 4가 확정된 상태에서는 Step 3 확정을 취소할 수 없습니다. 먼저 Step 4 확정을 취소하세요.")
+                
+            metadata['steps']['step3']['status'] = 'pending'
+            metadata['steps']['step3']['completed_at'] = None
+            metadata['current_step'] = 2
+            # Keep extracted_data.json as draft
+            
+        elif step_number == 4:
+            # Step 4 Unconfirm (No dependency check needed - it's the last step)
+            metadata['steps']['step4']['status'] = 'pending'
+            metadata['steps']['step4']['completed_at'] = None
+            metadata['current_step'] = 3
+            # Keep reconciliation_results.json as draft
             
         metadata['updated_at'] = datetime.now().isoformat()
         self.save_metadata(project_id, metadata)
@@ -343,6 +415,7 @@ class StepManager:
         return draft_data, confirmed_data
 
     def get_mother_workspace_data(self, project_id):
+        """Get comprehensive mother workspace data with summaries for all steps"""
         metadata = self.load_metadata(project_id)
         
         summary = {
@@ -353,14 +426,231 @@ class StepManager:
             "step4_summary": None
         }
         
-        # Calculate summaries if steps are completed
+        project_path = self.get_project_path(project_id)
+        
+        # Step 1 Summary: Invoice/Ledger Data
         if metadata['steps']['step1']['status'] == 'completed':
-            _, confirmed_data = self.get_step1_data(project_id)
-            summary['step1_summary'] = {
-                "count": len(confirmed_data),
-                # Add more stats like total amount if column known
-            }
-            
-        # Add logic for other steps as they are implemented
+            try:
+                _, confirmed_data = self.get_step1_data(project_id)
+                total_amount = 0
+                
+                # Try to find amount column
+                if confirmed_data:
+                    first_row = confirmed_data[0]
+                    amount_col = None
+                    for col in ['Net Value', 'Amount', 'Total Amount', '금액', 'Net amount']:
+                        if col in first_row:
+                            amount_col = col
+                            break
+                    
+                    if amount_col:
+                        for row in confirmed_data:
+                            try:
+                                val = str(row.get(amount_col, '0')).replace(',', '').strip()
+                                if val and val != '':
+                                    total_amount += float(val)
+                            except (ValueError, TypeError):
+                                pass
+                
+                summary['step1_summary'] = {
+                    "invoice_count": len(confirmed_data),
+                    "total_amount": total_amount
+                }
+            except Exception as e:
+                print(f"Error calculating Step 1 summary: {e}")
+                summary['step1_summary'] = {"invoice_count": 0, "total_amount": 0}
+        
+        # Step 2 Summary: Evidence Collection
+        if metadata['steps']['step2']['status'] == 'completed':
+            try:
+                evidence_dir = os.path.join(project_path, 'step2_evidence_collection')
+                split_dir = os.path.join(evidence_dir, 'split_documents')
+                
+                total_docs = 0
+                collected_docs = 0
+                doc_types = {}
+                
+                if os.path.exists(split_dir):
+                    for billing_doc in os.listdir(split_dir):
+                        doc_path = os.path.join(split_dir, billing_doc)
+                        if os.path.isdir(doc_path):
+                            total_docs += 1
+                            
+                            # Check for files in new structure (extraction_targets, others) or old structure
+                            has_files = False
+                            for subfolder in ['extraction_targets', 'others']:
+                                subfolder_path = os.path.join(doc_path, subfolder)
+                                if os.path.exists(subfolder_path):
+                                    files = [f for f in os.listdir(subfolder_path) if f.lower().endswith('.pdf')]
+                                    if files:
+                                        has_files = True
+                                        for f in files:
+                                            # Count document types
+                                            doc_type = self._get_doc_type_from_filename(f)
+                                            doc_types[doc_type] = doc_types.get(doc_type, 0) + 1
+                            
+                            # Fallback to old structure
+                            if not has_files:
+                                files = [f for f in os.listdir(doc_path) if f.lower().endswith('.pdf')]
+                                if files:
+                                    has_files = True
+                                    for f in files:
+                                        doc_type = self._get_doc_type_from_filename(f)
+                                        doc_types[doc_type] = doc_types.get(doc_type, 0) + 1
+                            
+                            if has_files:
+                                collected_docs += 1
+                
+                collection_rate = (collected_docs / total_docs * 100) if total_docs > 0 else 0
+                
+                summary['step2_summary'] = {
+                    "total_documents": total_docs,
+                    "collected_documents": collected_docs,
+                    "collection_rate": round(collection_rate, 1),
+                    "document_types": doc_types
+                }
+            except Exception as e:
+                print(f"Error calculating Step 2 summary: {e}")
+                summary['step2_summary'] = {"total_documents": 0, "collected_documents": 0, "collection_rate": 0}
+        
+        # Step 3 Summary: Data Extraction
+        if metadata['steps']['step3']['status'] == 'completed':
+            try:
+                extraction_data = self.get_step3_extraction_data(project_id)
+                
+                total_fields = 0
+                high_confidence_fields = 0
+                
+                if isinstance(extraction_data, list):
+                    for doc in extraction_data:
+                        if 'extracted_fields' in doc:
+                            for field_name, field_data in doc['extracted_fields'].items():
+                                total_fields += 1
+                                confidence = field_data.get('confidence', 0)
+                                if confidence >= 0.8:
+                                    high_confidence_fields += 1
+                
+                avg_accuracy = (high_confidence_fields / total_fields * 100) if total_fields > 0 else 0
+                low_confidence_count = total_fields - high_confidence_fields
+                
+                summary['step3_summary'] = {
+                    "extracted_documents": len(extraction_data) if isinstance(extraction_data, list) else 0,
+                    "total_fields": total_fields,
+                    "avg_accuracy": round(avg_accuracy, 1),
+                    "low_confidence_count": low_confidence_count
+                }
+            except Exception as e:
+                print(f"Error calculating Step 3 summary: {e}")
+                summary['step3_summary'] = {"extracted_documents": 0, "avg_accuracy": 0}
+        
+        # Step 4 Summary: Reconciliation
+        if metadata['steps']['step4']['status'] == 'completed':
+            try:
+                recon_path = os.path.join(project_path, 'step4_reconciliation', 'reconciliation_results.json')
+                if os.path.exists(recon_path):
+                    with open(recon_path, 'r', encoding='utf-8') as f:
+                        recon_data = json.load(f)
+                    
+                    matched = recon_data.get('matched', 0)
+                    unmatched = recon_data.get('unmatched', 0)
+                    needs_review = recon_data.get('needs_review', 0)
+                    total = matched + unmatched + needs_review
+                    
+                    match_rate = (matched / total * 100) if total > 0 else 0
+                    
+                    summary['step4_summary'] = {
+                        "total_items": total,
+                        "matched": matched,
+                        "unmatched": unmatched,
+                        "needs_review": needs_review,
+                        "match_rate": round(match_rate, 1)
+                    }
+            except Exception as e:
+                print(f"Error calculating Step 4 summary: {e}")
+                summary['step4_summary'] = {"total_items": 0, "match_rate": 0}
         
         return summary
+    
+    def _get_doc_type_from_filename(self, filename):
+        """Helper to extract document type from filename"""
+        lower_name = filename.lower()
+        
+        if 'bill_of_lading' in lower_name or 'b_l' in lower_name:
+            return 'Bill of Lading'
+        if 'commercial_invoice' in lower_name or 'invoice' in lower_name:
+            return 'Invoice'
+        if 'packing_list' in lower_name or 'packing' in lower_name:
+            return 'Packing List'
+        if 'certificate_origin' in lower_name:
+            return 'Certificate of Origin'
+        if 'weight' in lower_name:
+            return 'Weight List'
+        if 'mill' in lower_name:
+            return 'Mill Certificate'
+        
+        return 'Other'
+
+    def run_step3_extraction(self, project_id, selected_fields=None):
+        """
+        Run Step 3: Smart Extraction Engine
+        """
+        print(f"🚀 Step 3 Extraction Started: {project_id}")
+        metadata = self.load_metadata(project_id)
+        
+        # Check prerequisites (Step 2 completed?)
+        # if metadata['steps']['step2']['status'] != 'completed':
+        #     raise Exception("Step 2가 완료되지 않았습니다.")
+            
+        project_path = self.get_project_path(project_id)
+        split_dir = os.path.join(project_path, 'step2_evidence_collection', 'split_documents')
+        output_dir = os.path.join(project_path, 'step3_data_extraction')
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Update status to in_progress
+        metadata['steps']['step3']['status'] = 'in_progress'
+        metadata['steps']['step3']['started_at'] = datetime.now().isoformat()
+        self.save_metadata(project_id, metadata)
+        
+        try:
+            # Initialize Engine
+            engine = SmartExtractionEngine()
+            
+            # Run Async Extraction (Synchronously wait for it in this thread)
+            # In production, this should be offloaded to a background worker (Celery/Redis Queue)
+            results = asyncio.run(engine.process_project_pdfs_async(project_id, split_dir, selected_fields))
+            
+            # Save Results
+            output_file = os.path.join(output_dir, 'extracted_data.json')
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(results, f, ensure_ascii=False, indent=2)
+                
+            # Update Metadata to Completed
+            metadata['steps']['step3']['status'] = 'completed'
+            metadata['steps']['step3']['completed_at'] = datetime.now().isoformat()
+            
+            # Unlock Step 4
+            if metadata['steps']['step4']['status'] == 'locked':
+                metadata['steps']['step4']['status'] = 'pending'
+                
+            self.save_metadata(project_id, metadata)
+            
+            return "task_completed"
+            
+        except Exception as e:
+            print(f"❌ Extraction Failed: {e}")
+            metadata['steps']['step3']['status'] = 'failed'
+            self.save_metadata(project_id, metadata)
+            raise e
+
+    def get_step3_extraction_data(self, project_id):
+        """
+        Get Step 3 Extracted Data
+        """
+        project_path = self.get_project_path(project_id)
+        data_path = os.path.join(project_path, 'step3_data_extraction', 'extracted_data.json')
+        
+        if not os.path.exists(data_path):
+            return []
+            
+        with open(data_path, 'r', encoding='utf-8') as f:
+            return json.load(f)

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import './LedgerTable.css';
 
-const LedgerTable = forwardRef(({ data, onDataChange, isLoading, visibleColumns, onColumnReorder, isEditMode, headerStyles, columnGroups, onCellClick }, ref) => {
+const LedgerTable = forwardRef(({ data, onDataChange, isLoading, visibleColumns, onColumnReorder, isEditMode, headerStyles, columnGroups, onCellClick, getCellClassName, handleDoubleClick }, ref) => {
 
   useImperativeHandle(ref, () => ({
     getSelectedRows: () => {
@@ -765,10 +765,13 @@ const LedgerTable = forwardRef(({ data, onDataChange, isLoading, visibleColumns,
                   const isSelected = isCellSelected(rowIndex, colIndex);
                   const isEditing = editingCell && editingCell.rowIndex === rowIndex && editingCell.colIndex === colIndex;
 
+                  // Custom cell class name
+                  const customClassName = getCellClassName ? getCellClassName(row, header, rowIndex, colIndex) : '';
+
                   return (
                     <td
                       key={`${rowIndex}-${header}`}
-                      className={isSelected ? 'selected-cell' : ''}
+                      className={`${isSelected ? 'selected-cell' : ''} ${customClassName}`}
                       onMouseDown={(e) => handleMouseDown(rowIndex, colIndex, e)}
                       onMouseEnter={() => handleMouseEnter(rowIndex, colIndex)}
                       onClick={(e) => onCellClick && onCellClick(row, header, rowIndex, colIndex, e)}
@@ -786,7 +789,17 @@ const LedgerTable = forwardRef(({ data, onDataChange, isLoading, visibleColumns,
                           onKeyDown={handleKeyDownEdit}
                         />
                       ) : (
-                        row[header] !== null ? row[header] : '-'
+                        (() => {
+                          const val = row[header];
+                          if (val === null || val === undefined) return '-';
+                          if (typeof val === 'object') {
+                            if (val.value !== undefined && val.unit !== undefined) {
+                              return `${val.value} ${val.unit}`;
+                            }
+                            return JSON.stringify(val);
+                          }
+                          return val;
+                        })()
                       )}
                     </td>
                   );
