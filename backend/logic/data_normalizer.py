@@ -182,6 +182,16 @@ class DataNormalizer:
                     amount_str = groups[1] if len(groups) > 1 else None
                 break
         
+        # 패턴 매칭 실패 시, 숫자만 있는 경우 처리 (Fallback)
+        if amount_str is None:
+            # 숫자, 콤마, 소수점만 포함된 패턴 찾기
+            number_pattern = r'([\d,\.]+)'
+            match = re.search(number_pattern, text)
+            if match:
+                amount_str = match.group(1)
+                # 통화는 없음
+                currency = None
+        
         # 숫자 파싱
         try:
             clean_amount = float(amount_str.replace(',', '')) if amount_str else None

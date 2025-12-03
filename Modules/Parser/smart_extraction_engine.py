@@ -77,7 +77,7 @@ class SmartExtractionEngine:
             from Config.api_config import GEMINI_API_KEY
             genai.configure(api_key=GEMINI_API_KEY)
             
-            # 모델 선택 (사용 가능한 모델 확인됨)
+            # 최신 안정 모델 (API 목록에서 확인됨)
             GEMINI_MODEL_NAME = 'models/gemini-2.5-flash'
             
             try:
@@ -90,11 +90,11 @@ class SmartExtractionEngine:
                     raise Exception("테스트 응답 없음")
             except Exception as e:
                 print(f"⚠️ {GEMINI_MODEL_NAME} 실패: {e}")
-                # 대체 모델 시도 (실제 사용 가능한 모델들)
+                # 대체 모델 목록 (API 목록에서 확인된 모델들)
                 fallback_models = [
-                    'models/gemini-2.0-flash',
-                    'models/gemini-2.5-pro',
-                    'models/gemini-2.0-flash-exp'
+                    'models/gemini-2.0-flash',       # 검증된 안정 버전
+                    'models/gemini-2.5-flash-lite',  # 더 가볍고 빠름
+                    'models/gemini-2.5-pro'          # 고성능 (비용↑)
                 ]
                 model_loaded = False
                 
@@ -275,7 +275,7 @@ class SmartExtractionEngine:
         # 문서 타입별 지시사항
         doc_instruction = ""
         if doc_type == "BL":
-            doc_instruction = "이 문서는 선하증권(Bill of Lading)입니다. 선박 정보와 운송 정보를 중심으로 추출하세요."
+            doc_instruction = "이 문서는 선하증권(Bill of Lading)입니다. 선박 정보, 운송 정보, Incoterms, 그리고 **중량 정보(Net Weight, Gross Weight)**를 주의 깊게 찾아 추출하세요. Incoterms는 'Freight Prepaid', 'Freight Collect' 문구와 함께 확인하세요."
         elif doc_type == "INVOICE":
             doc_instruction = "이 문서는 상업송장(Commercial Invoice)입니다. 금액과 거래 정보를 중심으로 추출하세요."
         
@@ -285,7 +285,19 @@ class SmartExtractionEngine:
         
         for field in extraction_fields:
             output_format = field.get('output_format', {})
-            field_prompts += f"- {field['label']} ({field['name']}): {field['prompt']}\n"
+            field_prompt = field['prompt']
+            
+            # Incoterms 필드에 대한 추가 힌트
+            if 'incoterms' in field['name'].lower():
+                field_prompt += " (예: FOB, CIF, EXW, DDP 등. 'Freight Prepaid'는 보통 CIF/CFR, 'Freight Collect'는 FOB/EXW와 관련됨)"
+            elif 'net_weight' in field['name'].lower():
+                field_prompt += " (순중량, N.W, Net Weight 숫자만 추출)"
+            elif 'gross_weight' in field['name'].lower():
+                field_prompt += " (총중량, G.W, Gross Weight 숫자만 추출)"
+            elif 'freight' in field['name'].lower() and 'terms' in field['name'].lower():
+                field_prompt += " ('Freight Prepaid' 또는 'Freight Collect' 문구 추출)"
+            
+            field_prompts += f"- {field['label']} ({field['name']}): {field_prompt}\n"
             
             # 예상 응답 형태 생성
             if 'currency' in output_format:

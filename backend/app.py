@@ -955,7 +955,12 @@ def get_step3_extraction_data_deprecated(project_id):
             print(f"[STEP3] Normalized columns: {column_mapping}")
         
         # Load extraction results (Source B - Invoice, Source C - B/L)
-        step3_results_path = os.path.join(PROJECTS_DIR, project_id, 'step3_data_extraction', 'extraction_results.json')
+        # Try new filename first, fallback to old for backward compatibility
+        step3_results_path = os.path.join(PROJECTS_DIR, project_id, 'step3_data_extraction', 'invoice_extraction_results.json')
+        if not os.path.exists(step3_results_path):
+            # Fallback to old filename
+            step3_results_path = os.path.join(PROJECTS_DIR, project_id, 'step3_data_extraction', 'extraction_results.json')
+        
         extraction_results = {}
         
         if os.path.exists(step3_results_path):
@@ -1090,7 +1095,10 @@ def extract_step3_data(project_id):
         step3_dir = os.path.join(PROJECTS_DIR, project_id, 'step3_data_extraction')
         os.makedirs(step3_dir, exist_ok=True)
         
-        results_file = os.path.join(step3_dir, 'extraction_results.json')
+        # Try new filename first, fallback to old for backward compatibility
+        results_file = os.path.join(step3_dir, 'invoice_extraction_results.json')
+        if not os.path.exists(results_file):
+            results_file = os.path.join(step3_dir, 'extraction_results.json')
         
         # Load existing results
         if os.path.exists(results_file):

@@ -154,18 +154,18 @@ def extract_and_compare(project_id):
                     # Invoice 데이터 추출
                     invoice_data = {
                         'Date': {
-                            'value': fields.get('on_board_date', {}).get('value'),
-                            'confidence': field_confidences.get('on_board_date', 0.0)
+                            'value': fields.get('sailing_date', {}).get('value'),
+                            'confidence': field_confidences.get('sailing_date', 0.0)
                         },
                         'Amount': {
-                            'value': fields.get('amount', {}).get('value'),
-                            'currency': fields.get('amount', {}).get('currency'),
-                            'confidence': field_confidences.get('amount', 0.0)
+                            'value': fields.get('total_amount', {}).get('value'),
+                            'currency': fields.get('total_amount', {}).get('currency'),
+                            'confidence': field_confidences.get('total_amount', 0.0)
                         },
                         'Quantity': {
-                            'value': fields.get('quantity', {}).get('value'),
-                            'unit': fields.get('quantity', {}).get('unit'),
-                            'confidence': field_confidences.get('quantity', 0.0)
+                            'value': fields.get('total_quantity', {}).get('value'),
+                            'unit': fields.get('total_quantity', {}).get('unit'),
+                            'confidence': field_confidences.get('total_quantity', 0.0)
                         },
                         'Incoterms': {
                             'value': fields.get('incoterms', {}).get('value'),
@@ -181,17 +181,27 @@ def extract_and_compare(project_id):
                         'port_of_loading': fields.get('port_of_loading', {}).get('value'),
                         'port_of_discharge': fields.get('port_of_discharge', {}).get('value'),
                         'on_board_date': fields.get('on_board_date', {}).get('value'),
+                        'net_weight': {
+                            'value': fields.get('net_weight', {}).get('value'),
+                            'unit': fields.get('net_weight', {}).get('unit')
+                        },
+                        'gross_weight': {
+                            'value': fields.get('gross_weight', {}).get('value'),
+                            'unit': fields.get('gross_weight', {}).get('unit')
+                        },
                         'quantity': {
                             'value': fields.get('quantity', {}).get('value'),
                             'unit': fields.get('quantity', {}).get('unit')
                         },
                         'shipper': fields.get('shipper', {}).get('value'),
                         'consignee': fields.get('consignee', {}).get('value'),
-                        'incoterms': fields.get('incoterms', {}).get('value'),
+                        'freight_payment_terms': fields.get('freight_payment_terms', {}).get('value'),
                         # 신뢰도
                         'on_board_date_confidence': field_confidences.get('on_board_date', 0.0),
+                        'net_weight_confidence': field_confidences.get('net_weight', 0.0),
+                        'gross_weight_confidence': field_confidences.get('gross_weight', 0.0),
                         'quantity_confidence': field_confidences.get('quantity', 0.0),
-                        'incoterms_confidence': field_confidences.get('incoterms', 0.0)
+                        'freight_payment_terms_confidence': field_confidences.get('freight_payment_terms', 0.0)
                     }
             
             # 결과 저장
@@ -202,18 +212,73 @@ def extract_and_compare(project_id):
             
             api_usage[slip_id] = total_tokens
         
-        # Save extraction results
-        results_file = os.path.join(step3_dir, 'extraction_results.json')
-        with open(results_file, 'w', encoding='utf-8') as f:
-            json.dump(extraction_results, f, ensure_ascii=False, indent=2)
+        # Save Invoice extraction results (병합 방식)
+        invoice_results_file = os.path.join(step3_dir, 'invoice_extraction_results.json')
         
-        # Save BL data separately
+        # 기존 데이터 로드
+        existing_invoice_data = {}
+        if os.path.exists(invoice_results_file):
+            try:
+                with open(invoice_results_file, 'r', encoding='utf-8') as f:
+                    existing_invoice_data = json.load(f)
+                print(f"[DEBUG] 기존 Invoice 데이터 로드: {len(existing_invoice_data)}건")
+            except Exception as e:
+                print(f"[WARNING] 기존 Invoice 데이터 로드 실패: {e}")
+        
+        # 병합 (새 데이터로 덮어쓰기)
+        existing_invoice_data.update(extraction_results)
+        
+        with open(invoice_results_file, 'w', encoding='utf-8') as f:
+            json.dump(existing_invoice_data, f, ensure_ascii=False, indent=2)
+        print(f"[DEBUG] Invoice 데이터 저장 완료: {len(existing_invoice_data)}건")
+        
+        # Save BL data separately (병합 방식)
         bl_file = os.path.join(step3_dir, 'bl_extraction_results.json')
+        
+        # 기존 BL 데이터 로드
+        existing_bl_data = {}
+        if os.path.exists(bl_file):
+            try:
+                with open(bl_file, 'r', encoding='utf-8') as f:
+                    existing_bl_data = json.load(f)
+                print(f"[DEBUG] 기존 BL 데이터 로드: {len(existing_bl_data)}건")
+            except Exception as e:
+                print(f"[WARNING] 기존 BL 데이터 로드 실패: {e}")
+        
+        # 병합
+        existing_bl_data.update(bl_data_map)
+        
         with open(bl_file, 'w', encoding='utf-8') as f:
-            json.dump(bl_data_map, f, ensure_ascii=False, indent=2)
+            json.dump(existing_bl_data, f, ensure_ascii=False, indent=2)
+        print(f"[DEBUG] BL 데이터 저장 완료: {len(existing_bl_data)}건")
+        
+        # Save API Usage separately (병합 방식)
+        usage_file = os.path.join(step3_dir, 'api_usage.json')
+        
+        # 기존 Usage 데이터 로드
+        existing_usage_data = {}
+        if os.path.exists(usage_file):
+            try:
+                with open(usage_file, 'r', encoding='utf-8') as f:
+                    existing_usage_data = json.load(f)
+                print(f"[DEBUG] 기존 API Usage 데이터 로드: {len(existing_usage_data)}건")
+            except Exception as e:
+                print(f"[WARNING] 기존 API Usage 데이터 로드 실패: {e}")
+        
+        # 병합
+        existing_usage_data.update(api_usage)
+        
+        with open(usage_file, 'w', encoding='utf-8') as f:
+            json.dump(existing_usage_data, f, ensure_ascii=False, indent=2)
+        print(f"[DEBUG] API Usage 데이터 저장 완료: {len(existing_usage_data)}건")
         
         # === 4. Normalize and Compare ===
         comparison_results = []
+        
+        # IMPORTANT: Use merged data for comparison, not just newly extracted data
+        all_invoice_data = existing_invoice_data  # Contains both old and new data
+        all_bl_data = existing_bl_data  # Contains both old and new data
+        all_usage_data = existing_usage_data # Contains both old and new usage data
         
         for step1_row in step1_data:
             billing_doc = str(step1_row.get('Billing Document', '')).strip()
@@ -221,8 +286,8 @@ def extract_and_compare(project_id):
 
                 continue
             
-            step3_data = extraction_results.get(billing_doc, {})
-            bl_data = bl_data_map.get(billing_doc, {})
+            step3_data = all_invoice_data.get(billing_doc, {})
+            bl_data = all_bl_data.get(billing_doc, {})
             
             # Get field confidence from API response
             field_confidence = {}
@@ -231,13 +296,13 @@ def extract_and_compare(project_id):
                     field_confidence[field_name] = field_value.get('confidence')
             
             # Compare using ReconciliationManager
-            comparison = reconciler.compare_four_fields(step1_row, step3_data, field_confidence)
+            comparison = reconciler.compare_four_fields(step1_row, step3_data, bl_data, field_confidence)
             
             # Prepare result with BL data included
             result = {
                 'billing_document': billing_doc,
                 'auto_comparison': comparison,
-                'api_usage': api_usage.get(billing_doc, {'input': 0, 'output': 0}),
+                'api_usage': all_usage_data.get(billing_doc, {'input': 0, 'output': 0}),
                 'step1_data': {
                     'date': step1_row.get('Billing Date', ''),
                     'amount': step1_row.get('Amount', ''),
@@ -247,15 +312,48 @@ def extract_and_compare(project_id):
                     'incoterms': step1_row.get('Incoterms', '')
                 },
                 'ocr_data': {
-                    'date': step3_data.get('Date', {}).get('value', '') if isinstance(step3_data.get('Date'), dict) else '',
-                    'amount': step3_data.get('Amount', {}).get('value', '') if isinstance(step3_data.get('Amount'), dict) else '',
-                    'quantity': step3_data.get('Quantity', {}).get('value', '') if isinstance(step3_data.get('Quantity'), dict) else '',
-                    'incoterms': step3_data.get('Incoterms', {}).get('value', '') if isinstance(step3_data.get('Incoterms'), dict) else '',
-                    # 신뢰도 추가
-                    'date_confidence': step3_data.get('Date', {}).get('confidence', 0.0),
-                    'amount_confidence': step3_data.get('Amount', {}).get('confidence', 0.0),
-                    'quantity_confidence': step3_data.get('Quantity', {}).get('confidence', 0.0),
-                    'incoterms_confidence': step3_data.get('Incoterms', {}).get('confidence', 0.0)
+                    # 새 필드명 우선, 없으면 구 필드명 사용 (백워드 호환성)
+                    'date': (
+                        step3_data.get('sailing_date', {}).get('value', '') if isinstance(step3_data.get('sailing_date'), dict) else step3_data.get('sailing_date', '')
+                    ) or (
+                        step3_data.get('Date', {}).get('value', '') if isinstance(step3_data.get('Date'), dict) else step3_data.get('Date', '')
+                    ),
+                    'amount': (
+                        step3_data.get('total_amount', {}).get('value', '') if isinstance(step3_data.get('total_amount'), dict) else step3_data.get('total_amount', '')
+                    ) or (
+                        step3_data.get('Amount', {}).get('value', '') if isinstance(step3_data.get('Amount'), dict) else step3_data.get('Amount', '')
+                    ),
+                    'quantity': (
+                        step3_data.get('total_quantity', {}).get('value', '') if isinstance(step3_data.get('total_quantity'), dict) else step3_data.get('total_quantity', '')
+                    ) or (
+                        step3_data.get('Quantity', {}).get('value', '') if isinstance(step3_data.get('Quantity'), dict) else step3_data.get('Quantity', '')
+                    ),
+                    'incoterms': (
+                        step3_data.get('incoterms', {}).get('value', '') if isinstance(step3_data.get('incoterms'), dict) else step3_data.get('incoterms', '')
+                    ) or (
+                        step3_data.get('Incoterms', {}).get('value', '') if isinstance(step3_data.get('Incoterms'), dict) else step3_data.get('Incoterms', '')
+                    ),
+                    # 신뢰도 (새 필드명 우선)
+                    'date_confidence': (
+                        step3_data.get('sailing_date', {}).get('confidence', 0.0) if isinstance(step3_data.get('sailing_date'), dict) else 0.0
+                    ) or (
+                        step3_data.get('Date', {}).get('confidence', 0.0) if isinstance(step3_data.get('Date'), dict) else 0.0
+                    ),
+                    'amount_confidence': (
+                        step3_data.get('total_amount', {}).get('confidence', 0.0) if isinstance(step3_data.get('total_amount'), dict) else 0.0
+                    ) or (
+                        step3_data.get('Amount', {}).get('confidence', 0.0) if isinstance(step3_data.get('Amount'), dict) else 0.0
+                    ),
+                    'quantity_confidence': (
+                        step3_data.get('total_quantity', {}).get('confidence', 0.0) if isinstance(step3_data.get('total_quantity'), dict) else 0.0
+                    ) or (
+                        step3_data.get('Quantity', {}).get('confidence', 0.0) if isinstance(step3_data.get('Quantity'), dict) else 0.0
+                    ),
+                    'incoterms_confidence': (
+                        step3_data.get('incoterms', {}).get('confidence', 0.0) if isinstance(step3_data.get('incoterms'), dict) else 0.0
+                    ) or (
+                        step3_data.get('Incoterms', {}).get('confidence', 0.0) if isinstance(step3_data.get('Incoterms'), dict) else 0.0
+                    )
                 },
                 'bl_data': bl_data if bl_data else None
             }
