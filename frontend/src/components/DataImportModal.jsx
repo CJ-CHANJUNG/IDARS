@@ -74,7 +74,17 @@ const DataImportModal = ({ isOpen, onClose, onFileUpload, onSapFetch, onDMSDownl
 
     // --- DMS Handlers ---
     const handleDMSDownload = () => {
+        console.log('[DMS Modal] Download button clicked!');
+        console.log('[DMS Modal] Mode:', dmsMode);
+        console.log('[DMS Modal] Project:', project);
+        console.log('[DMS Modal] onDMSDownload function:', onDMSDownload);
+
         if (dmsMode === 'project') {
+            if (!project) {
+                alert('프로젝트가 선택되지 않았습니다.');
+                return;
+            }
+            console.log('[DMS Modal] Calling onDMSDownload with project mode');
             onDMSDownload({ mode: 'project' });
         } else {
             const docNumbers = manualDocNumbers
@@ -87,6 +97,7 @@ const DataImportModal = ({ isOpen, onClose, onFileUpload, onSapFetch, onDMSDownl
                 return;
             }
 
+            console.log('[DMS Modal] Calling onDMSDownload with manual mode, docs:', docNumbers.length);
             onDMSDownload({
                 mode: 'manual',
                 docNumbers,
@@ -297,9 +308,10 @@ const DataImportModal = ({ isOpen, onClose, onFileUpload, onSapFetch, onDMSDownl
                                 <button
                                     className="dms-button primary"
                                     onClick={handleDMSDownload}
-                                    disabled={dmsMode === 'project' && !project}
+                                    disabled={false}
+                                    title={dmsMode === 'project' && !project ? '프로젝트가 선택되지 않았습니다' : '다운로드 시작'}
                                 >
-                                    다운로드 시작
+                                    {dmsMode === 'project' && !project ? '⚠️ 프로젝트 없음' : '다운로드 시작'}
                                 </button>
                             </div>
                         </div>

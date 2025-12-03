@@ -79,7 +79,7 @@ async def ocr_pdf(file: UploadFile = File(...)):
         try:
             # Google Vision API 호출 예시 (API Key 필요)
             # 실제 사용시 아래 API_KEY를 환경변수 등으로 관리할 것
-            API_KEY = os.getenv("AIzaSyADYNGhB3UVSeBK2QOlAjOylOuBufbNbp4", "")
+            API_KEY = os.getenv("your_api_key", "")
             if not API_KEY:
                 raise Exception("Google Vision API Key 미설정")
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:

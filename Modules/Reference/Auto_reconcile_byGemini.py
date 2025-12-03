@@ -64,7 +64,7 @@ EVIDENCE_VALUE_COLUMNS = [
 
 # --- Gemini API 설정 ---
 # !!! 중요: 여기에 사용자님의 실제 Gemini API 키를 입력하세요 !!!
-GEMINI_API_KEY = "AIzaSyADYNGhB3UVSeBK2QOlAjOylOuBufbNbp4" # <--- 사용자님의 정확한 API 키
+GEMINI_API_KEY = "your_api_key" # <--- 사용자님의 정확한 API 키
 
 def initialize_gemini_api():
     """Gemini API 초기화"""
