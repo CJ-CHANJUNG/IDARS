@@ -6,7 +6,6 @@ const MENU_ITEMS = [
     { id: 'step1', icon: '✅', label: 'Step 1: 전표 확정', subLabel: 'Invoice Confirmation' },
     { id: 'step2', icon: '📂', label: 'Step 2: 증빙 수집', subLabel: 'Evidence Collection' },
     { id: 'step3', icon: '🔍', label: 'Step 3: 데이터 추출', subLabel: 'Data Extraction' },
-    { id: 'step4', icon: '⚡', label: 'Step 4: 자동 대사', subLabel: 'Auto-Reconciliation' },
     { id: 'dashboard', icon: '📊', label: '결과 대시보드', subLabel: 'Results Dashboard' },
 ];
 
@@ -63,6 +62,19 @@ const Sidebar = ({ onGoHome, activeId, onMenuClick }) => {
             </nav>
 
             <div className="sidebar-footer">
+                <button
+                    className={`nav-item settings-btn ${activeId === 'settings' ? 'active' : ''}`}
+                    onClick={() => onMenuClick('settings')}
+                    title={isCollapsed ? "설정" : ""}
+                >
+                    <span className="nav-icon">⚙️</span>
+                    {!isCollapsed && (
+                        <div className="nav-label-container">
+                            <span className="nav-label">설정</span>
+                            <span className="nav-sublabel">Settings</span>
+                        </div>
+                    )}
+                </button>
                 {!isCollapsed && <span className="version-text">v2.5 MVP</span>}
             </div>
         </div>

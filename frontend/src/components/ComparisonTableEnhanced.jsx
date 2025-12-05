@@ -47,6 +47,28 @@ const ComparisonTableEnhanced = ({
         if (onSelectAll) onSelectAll(e);
     };
 
+    // ★ NEW: Filter-based selection
+    const handleSelectByStatus = (status) => {
+        // Filter documents by status and select them
+        const docsToSelect = filteredData
+            .filter(row => {
+                const rowStatus = row.auto_comparison?.status || row.final_status || 'unknown';
+                return rowStatus === status;
+            })
+            .map(row => row.billing_document);
+
+        if (onRowSelect && docsToSelect.length > 0) {
+            // Clear current selection first
+            if (onSelectAll) {
+                onSelectAll({ target: { checked: false } });
+            }
+            // Then select filtered items
+            setTimeout(() => {
+                docsToSelect.forEach(doc => onRowSelect(doc));
+            }, 50);
+        }
+    };
+
     const handleCellClick = (billingDoc, docType) => {
         if (onViewPDF) {
             onViewPDF(billingDoc, docType);
@@ -86,6 +108,9 @@ const ComparisonTableEnhanced = ({
                 totalTokens={totalTokens}
                 selectedRows={selectedRows}
                 onFinalJudgment={handleFinalJudgment}
+                onSelectAll={handleSelectAll}
+                onSelectByStatus={handleSelectByStatus}
+                filteredData={filteredData}
             />
 
             <div
@@ -147,4 +172,3 @@ const ComparisonTableEnhanced = ({
 };
 
 export default ComparisonTableEnhanced;
-

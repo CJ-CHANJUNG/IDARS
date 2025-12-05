@@ -79,6 +79,27 @@ def extract_and_compare(project_id):
         engine = SmartExtractionEngine()
         split_dir = os.path.join(project_path, 'step2_evidence_collection', 'split_documents')
         
+        # ★ 진행률 초기화
+        from app import extraction_progress
+        extraction_progress[project_id] = {
+            "status": "running",
+            "current": 0,
+            "total": len(target_ids) if target_ids else 0,
+            "message": "추출 시작...",
+            "doc_number": ""
+        }
+        print(f"[PROGRESS] Initialized extraction progress for {project_id}")
+        
+        # ★ 진행률 콜백 함수
+        def update_extraction_progress(current, total, doc_number, message):
+            extraction_progress[project_id].update({
+                "current": current,
+                "total": total,
+                "doc_number": doc_number,
+                "message": message
+            })
+            print(f"[PROGRESS] {current}/{total} - {doc_number}: {message}")
+        
         # 비동기 병렬 처리 (asyncio.run으로 실행)
         import asyncio
         print(f"[DEBUG] Starting async extraction for project {project_id}")
@@ -103,21 +124,32 @@ def extract_and_compare(project_id):
                         project_id=project_id,
                         split_dir=split_dir,
                         extraction_mode=extraction_mode,
-                        target_ids=target_ids
+                        target_ids=target_ids,
+                        progress_callback=update_extraction_progress
                     )).result()
             else:
                 extraction_results_raw = asyncio.run(engine.process_project_pdfs_async(
                     project_id=project_id,
                     split_dir=split_dir,
                     extraction_mode=extraction_mode,  # basic 또는 detailed
-                    target_ids=target_ids
+                    target_ids=target_ids,
+                    progress_callback=update_extraction_progress
                 ))
             print(f"[DEBUG] Async extraction completed. Results count: {len(extraction_results_raw)}")
+            
+            # ★ 진행률 완료 처리
+            extraction_progress[project_id]["status"] = "completed"
+            extraction_progress[project_id]["message"] = "추출 완료"
             
         except Exception as e:
             print(f"[CRITICAL ERROR] Async execution failed: {e}")
             import traceback
             traceback.print_exc()
+            
+            # ★ 진행률 에러 처리
+            extraction_progress[project_id]["status"] = "error"
+            extraction_progress[project_id]["message"] = str(e)
+            
             # Log to file to persist after crash
             with open("crash_log.txt", "a") as f:
                 f.write(f"[{datetime.now()}] Crash in step3_integrated_api: {e}\n")

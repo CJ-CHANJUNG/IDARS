@@ -1,0 +1,233 @@
+/* ========================================
+   Progress Bar Container - Segmented Block Style
+   ======================================== */
+.progress-bar-container {
+    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    margin: 1rem 0;
+    border: 3px solid #4a5568;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.progress-bar-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ========================================
+   Progress Bar Header
+   ======================================== */
+.progress-bar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.progress-bar-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.progress-icon {
+    font-size: 1.5rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.15);
+        opacity: 0.85;
+    }
+}
+
+.progress-message {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.progress-percentage {
+    font-size: 3.5rem;
+    font-weight: 900;
+    font-family: 'Arial Black', 'Impact', sans-serif;
+    color: #fff;
+    text-shadow:
+        0 0 10px rgba(132, 204, 22, 0.8),
+        0 0 20px rgba(132, 204, 22, 0.5),
+        3px 3px 0px rgba(0, 0, 0, 0.8);
+    letter-spacing: -2px;
+}
+
+/* ========================================
+   Segmented Progress Bar Track
+   ======================================== */
+.progress-bar-track {
+    width: 100%;
+    height: 60px;
+    background: #1a202c;
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.6);
+    margin-bottom: 1.5rem;
+    border: 2px solid #2d3748;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    border-radius: 8px;
+    position: relative;
+    overflow: visible;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Segmented Blocks */
+.progress-bar-fill::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    background: repeating-linear-gradient(90deg,
+            #84cc16 0px,
+            #84cc16 calc((100% - 36px) / 10),
+            transparent calc((100% - 36px) / 10),
+            transparent calc((100% - 36px) / 10 + 4px));
+    border-radius: 8px;
+    box-shadow:
+        0 0 20px rgba(132, 204, 22, 0.6),
+        inset 0 2px 4px rgba(255, 255, 255, 0.3),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* 진행 중 애니메이션 */
+.progress-bar-fill.animated::before {
+    animation: progressGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes progressGlow {
+
+    0%,
+    100% {
+        box-shadow:
+            0 0 20px rgba(132, 204, 22, 0.6),
+            inset 0 2px 4px rgba(255, 255, 255, 0.3),
+            inset 0 -2px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    50% {
+        box-shadow:
+            0 0 30px rgba(132, 204, 22, 0.9),
+            0 0 40px rgba(132, 204, 22, 0.5),
+            inset 0 2px 4px rgba(255, 255, 255, 0.4),
+            inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* 반짝이는 효과 */
+.progress-bar-shimmer {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.3) 50%,
+            transparent 100%);
+    animation: shimmer 2.5s infinite;
+    border-radius: 8px;
+}
+
+@keyframes shimmer {
+    0% {
+        left: -100%;
+    }
+
+    100% {
+        left: 200%;
+    }
+}
+
+/* ========================================
+   Progress Bar Details
+   ======================================== */
+.progress-bar-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95rem;
+    color: #cbd5e0;
+}
+
+.progress-count {
+    color: #a0aec0;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.progress-status-text {
+    font-weight: 700;
+    color: #63b3ed;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.progress-status-text.completed {
+    color: #84cc16;
+}
+
+.progress-status-text.error {
+    color: #fc8181;
+}
+
+/* ========================================
+   Modal Animation
+   ======================================== */
+@keyframes fadeInScale {
+    0% {
+        opacity: 0;
+        transform: scale(0.85) translateY(20px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
+@media (max-width: 768px) {
+    .progress-bar-container {
+        padding: 1.5rem;
+    }
+
+    .progress-percentage {
+        font-size: 2.5rem;
+    }
+
+    .progress-bar-track {
+        height: 48px;
+    }
+
+    .progress-count {
+        font-size: 0.95rem;
+    }
+}

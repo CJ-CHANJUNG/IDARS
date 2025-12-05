@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * Custom hook for managing comparison table state and logic
@@ -10,6 +10,38 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
     const [editValue, setEditValue] = useState('');
     const [userCorrections, setUserCorrections] = useState({});
     const [finalJudgments, setFinalJudgments] = useState({});
+    const initializedRef = useRef(false); // ★ Track initialization
+
+    // ★ Auto-populate finalJudgments from 1차 판단 (only once when data first loads)
+    useEffect(() => {
+        if (data && data.length > 0 && !initializedRef.current) {
+            console.log('[useComparisonTable] Initializing finalJudgments from auto_comparison');
+            const initialJudgments = {};
+
+            data.forEach(item => {
+                const billingDoc = item.billing_document;
+                const autoStatus = item.auto_comparison?.status || item.final_status;
+
+                // Map auto status to final judgment value
+                let judgment = '';
+                if (autoStatus === 'complete_match') {
+                    judgment = 'match';
+                } else if (autoStatus === 'partial_error') {
+                    judgment = 'mismatch';
+                } else if (autoStatus === 'review_required') {
+                    judgment = 'mismatch';
+                }
+
+                if (judgment) {
+                    initialJudgments[billingDoc] = judgment;
+                }
+            });
+
+            console.log('[useComparisonTable] Initial judgments:', Object.keys(initialJudgments).length, 'items');
+            setFinalJudgments(initialJudgments);
+            initializedRef.current = true;
+        }
+    }, [data]);
 
     // Define visible columns based on viewMode
     const visibleColumns = {
@@ -81,6 +113,7 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
     };
 
     const handleFinalJudgmentChange = (billingDoc, value) => {
+        console.log('[useComparisonTable] Final judgment changed:', billingDoc, value);
         setFinalJudgments(prev => ({
             ...prev,
             [billingDoc]: value

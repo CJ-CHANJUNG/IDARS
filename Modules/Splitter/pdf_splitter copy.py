@@ -119,26 +119,7 @@ class PDFSplitter:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.doc:
             self.doc.close()
-            
-    # ★ 헤더 전용 OCR (속도 최적화 - 3배 빠름)
-    def _ocr_header_only(self, page):
-        """헤더만 OCR (상단 30%, 낮은 해상도 - 분류용)"""
-        try:
-            # 상단 30% crop
-            rect = page.rect
-            clip = fitz.Rect(0, 0, rect.width, rect.height * 0.3)
-            
-            # 낮은 해상도 (150 DPI)
-            pix = page.get_pixmap(clip=clip, dpi=150)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            
-            # OCR 실행
-            text = pytesseract.image_to_string(img, lang='kor+eng', config='--psm 6')
-            return text.strip()
-        except Exception as e:
-            print(f"    ⚠️ Header OCR failed: {e}")
-            return ""
-    
+
     def _perform_ocr(self, page, high_res=False) -> str:
         """강제 OCR 수행 함수 - 한글 인식 최적화 (적응형 해상도)"""
         try:
@@ -218,41 +199,24 @@ class PDFSplitter:
         return None
 
 
-    def group_pages(self, target_types=None) -> List[Dict]:
-        """페이지를 그룹화
-        
-        Args:
-            target_types: 추출할 문서 타입 리스트 (예: ['Bill_of_Lading', 'Commercial_Invoice'])
-                         None이면 전체 처리
-        """
+    def group_pages(self) -> List[Dict]:
         analyses = []
         for i in range(len(self.doc)):
             page = self.doc[i]
             
-            # ★ 1단계: 헤더만 빠른 OCR (선택적 추출용)
-            if target_types:
-                header_text = self._ocr_header_only(page)
-                quick_type, quick_conf, _ = self._classify_page(header_text)
-                
-                # 타겟 타입이 아니면 건너뛰기
-                if quick_type not in target_types:
-                    print(f"  ⏭️ P.{i+1}: Skipping (Type={quick_type}, not in targets)")
-                    analyses.append({'page': i, 'type': None, 'id': None, 'conf': 0, 'method': 'skipped', 'text': ''})
-                    continue
-            
-            # ★ 2단계: 일반 텍스트 추출 시도
+            # 1. 먼저 일반 텍스트만 추출 (OCR 없이, 빠름)
             text = page.get_text()
             doc_type, conf, method = self._classify_page(text)
             
-            # ★ 3단계: 실패 시 전체 OCR
+            # 🚨 [RESCUE LOGIC] 분류 실패 시 OCR 시도 (느리지만 정확) 🚨
             if doc_type is None:
                 print(f"  [RESCUE] P.{i+1} Text-based classification failed. Trying OCR...")
-                text = self._perform_ocr(page)
-                doc_type, conf, method = self._classify_page(text)
+                text = self._perform_ocr(page)  # 이제 OCR 실행
+                doc_type, conf, method = self._classify_page(text)  # OCR 텍스트로 재분류
                 if doc_type:
                     print(f"    ✅ Rescued! Detected: {doc_type}")
                 else:
-                    # 파일명 기반 분류
+                    # 🔥 [FILENAME FALLBACK] OCR도 실패 시 파일명 기반 분류
                     filename = str(self.pdf_path.name).upper()
                     if 'EP-' in filename or 'EXPORT' in filename or 'DECLARATION' in filename:
                         doc_type = 'Customs_clearance_Letter'
@@ -265,6 +229,7 @@ class PDFSplitter:
             doc_id = self._extract_id(text, doc_type)
             analyses.append({'page': i, 'type': doc_type, 'id': doc_id, 'conf': conf, 'method': method, 'text': text})
             
+            # DEBUG: Print classification result for each page
             print(f"  📄 Page {i+1}: Type={doc_type}, ID={doc_id}, Conf={conf}, Method={method}")
 
         # DEBUG: Print all analyses
@@ -319,17 +284,10 @@ class PDFSplitter:
         
         return groups
 
-    def process(self, target_types=None) -> List[Dict]:
-        """PDF 분할 처리
-        
-        Args:
-            target_types: 추출할 문서 타입 (예: ['Bill_of_Lading', 'Commercial_Invoice'])
-                         None이면 전체 처리
-        """
+    def process(self) -> List[Dict]:
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        groups = self.group_pages(target_types=target_types)
+        groups = self.group_pages()
         saved_files = []
-        processed_pages = set()  # ★ 중복 방지
         
         # Parser 폴더 생성
         Path(PARSER_CI_INPUT).mkdir(parents=True, exist_ok=True)
@@ -338,17 +296,10 @@ class PDFSplitter:
         for grp in groups:
             doc_type = grp['type']
             pages = grp['pages']
-            
-            # ★ 중복 페이지 제거
-            new_pages = [p for p in pages if p not in processed_pages]
-            if not new_pages:
-                print(f"  ⏭️ Skipping duplicate group: {doc_type}")
-                continue
-            
-            start, end = new_pages[0]+1, new_pages[-1]+1
+            start, end = pages[0]+1, pages[-1]+1
             
             out_pdf = fitz.open()
-            out_pdf.insert_pdf(self.doc, from_page=new_pages[0], to_page=new_pages[-1])
+            out_pdf.insert_pdf(self.doc, from_page=pages[0], to_page=pages[-1])
             
             page_str = f"{start}p" if start == end else f"{start}-{end}p"
             id_str = f"_{grp['id']}" if grp['id'] else ""
@@ -366,9 +317,6 @@ class PDFSplitter:
                 out_pdf.save(str(Path(PARSER_BL_INPUT) / filename))
             
             out_pdf.close()
-            
-            # ★ 처리한 페이지 추적
-            processed_pages.update(new_pages)
             
             saved_files.append({
                 "file_name": filename, "slip_no": self.slip_no, "document_type": doc_type,

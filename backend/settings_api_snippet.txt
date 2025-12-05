@@ -1,0 +1,21 @@
+@app.route('/api/settings', methods=['GET', 'POST'])
+def manage_settings():
+    """
+    Settings API - Save and load application settings
+    """
+    settings_file = os.path.join(BASE_DIR, 'Data', 'app_settings.json')
+    
+    # Ensure Data directory exists
+    os.makedirs(os.path.dirname(settings_file), exist_ok=True)
+    
+    if request.method == 'GET':
+        if os.path.exists(settings_file):
+            with open(settings_file, 'r', encoding='utf-8') as f:
+                return jsonify(json.load(f))
+        return jsonify({})
+    
+    elif request.method == 'POST':
+        settings = request.json
+        with open(settings_file, 'w', encoding='utf-8') as f:
+            json.dump(settings, f, ensure_ascii=False, indent=2)
+        return jsonify({"status": "success", "message": "Settings saved successfully"})

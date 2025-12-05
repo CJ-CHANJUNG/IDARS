@@ -7,6 +7,8 @@ import MotherWorkspace from './components/MotherWorkspace'
 import Step1InvoiceConfirmation from './components/steps/Step1InvoiceConfirmation'
 import Step2EvidenceCollection from './components/steps/Step2EvidenceCollection'
 import Step3DataExtraction from './components/steps/Step3DataExtraction'
+import ResultsDashboard from './components/ResultsDashboard'
+import Settings from './components/Settings'
 
 import './App.css'
 
@@ -150,18 +152,12 @@ function AppContent() {
               {sidebarView === 'step2' && <Step2EvidenceCollection />}
               {sidebarView === 'step3' && <Step3DataExtraction />}
 
-              {sidebarView === 'step4' && (
-                <div className="placeholder-view">
-                  <h3>Step 4: 자동 대사 (Auto-Reconciliation)</h3>
-                  <p>추출된 데이터와 전표 데이터를 자동으로 대사합니다.</p>
-                </div>
-              )}
+              {/* Results Dashboard (replaced Step 4) */}
+              {sidebarView === 'dashboard' && <ResultsDashboard project={project} />}
 
-              {sidebarView === 'dashboard' && (
-                <div className="placeholder-view">
-                  <h3>결과 대시보드 (Results Dashboard)</h3>
-                  <p>최종 대사 결과 및 통계를 확인합니다.</p>
-                </div>
+              {/* Settings */}
+              {sidebarView === 'settings' && (
+                <Settings onSave={(settings) => console.log('Settings saved:', settings)} />
               )}
             </div>
           </>

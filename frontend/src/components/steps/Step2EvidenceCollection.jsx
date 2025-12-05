@@ -3,6 +3,7 @@ import { useProject } from '../../context/ProjectContext';
 import DataImportModal from '../DataImportModal';
 import PDFViewerModal from '../PDFViewerModal';
 import EvidenceUploadModal from '../EvidenceUploadModal';
+import ProgressBar from '../ProgressBar';
 
 const Step2EvidenceCollection = () => {
     const {
@@ -139,8 +140,7 @@ const Step2EvidenceCollection = () => {
             const result = await response.json();
 
             if (response.ok) {
-                const mode = forceRedownload ? '(전체 재다운로드)' : '(신규만 다운로드)';
-                alert(`DMS 다운로드가 시작되었습니다 ${mode}\n백그라운드에서 진행됩니다.`);
+                // 진행률 바가 바로 표시되므로 alert 불필요
                 pollDMSProgress();
                 setSelectedRows(new Set());
             } else {
@@ -209,7 +209,7 @@ const Step2EvidenceCollection = () => {
             const result = await response.json();
 
             if (response.ok) {
-                alert('PDF Split이 시작되었습니다. 백그라운드에서 진행됩니다.');
+                // 진행률 바가 바로 표시되므로 alert 불필요
                 pollSplitProgress();
                 setSelectedRows(new Set());
             } else {
@@ -320,7 +320,12 @@ const Step2EvidenceCollection = () => {
             let files = await response.json();
 
             if (files && files.length > 0) {
+                // filterType 여부에 따라 다르게 처리
                 if (filterType) {
+                    // 오른쪽 컬럼 (BL, Invoice 등) 클릭 → split 파일만 표시
+                    files = files.filter(f => f.type === 'split');
+
+                    // 문서 타입별 필터링
                     const filtered = files.filter(f => {
                         const lowerName = f.filename.toLowerCase();
                         if (filterType === 'Bill_of_Lading') return lowerName.includes('bill_of_lading') || lowerName.includes('b_l');
@@ -341,13 +346,10 @@ const Step2EvidenceCollection = () => {
                         return true;
                     });
                     if (filtered.length > 0) files = filtered;
+                } else {
+                    // 증빙 칼럼 클릭 → original 파일만 표시
+                    files = files.filter(f => f.type === 'original');
                 }
-
-                files.sort((a, b) => {
-                    if (a.type === 'original' && b.type !== 'original') return -1;
-                    if (a.type !== 'original' && b.type === 'original') return 1;
-                    return 0;
-                });
 
                 const filesWithUrl = files.map(f => ({
                     ...f,
@@ -357,11 +359,15 @@ const Step2EvidenceCollection = () => {
                 setPdfViewerState({
                     isOpen: true,
                     files: filesWithUrl,
-                    title: `증빙 문서: ${row.billingDocument}${filterType ? ` (${filterType})` : ''}`,
+                    title: filterType
+                        ? `${filterType} 문서: ${row.billingDocument}`
+                        : `증빙 문서 (원본): ${row.billingDocument}`,
                     billingDocument: row.billingDocument
                 });
             } else {
-                alert('해당 전표의 증빙 파일(원본 또는 Split)을 찾을 수 없습니다.');
+                alert(filterType
+                    ? `해당 전표의 ${filterType} 파일을 찾을 수 없습니다.`
+                    : '해당 전표의 원본 증빙 파일을 찾을 수 없습니다.');
             }
         } catch (err) {
             console.error(err);
@@ -775,33 +781,28 @@ const Step2EvidenceCollection = () => {
                 currentStep="step2"
             />
 
-            {/* Download Progress Modal */}
+
+            {/* Download Progress - Modern ProgressBar (Centered Modal) */}
             {showDownloadProgress && (
-                <div className="modal-overlay">
-                    <div className="modal-content" style={{ width: '400px', textAlign: 'center' }}>
-                        <h3>📥 진행 중...</h3>
-                        <div style={{ margin: '20px 0' }}>
-                            <div style={{
-                                width: '100%',
-                                height: '20px',
-                                backgroundColor: '#eee',
-                                borderRadius: '10px',
-                                overflow: 'hidden'
-                            }}>
-                                <div style={{
-                                    width: `${(downloadProgress.current / downloadProgress.total) * 100}% `,
-                                    height: '100%',
-                                    backgroundColor: '#4CAF50',
-                                    transition: 'width 0.3s ease'
-                                }} />
-                            </div>
-                            <p style={{ marginTop: '10px' }}>
-                                {downloadProgress.current} / {downloadProgress.total} 완료
-                            </p>
-                            <p style={{ fontSize: '12px', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {downloadProgress.message}
-                            </p>
-                        </div>
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9999,
+                    backdropFilter: 'blur(4px)'
+                }}>
+                    <div style={{
+                        width: '90%',
+                        maxWidth: '600px',
+                        animation: 'fadeInScale 0.3s ease-out'
+                    }}>
+                        <ProgressBar progress={downloadProgress} />
                     </div>
                 </div>
             )}

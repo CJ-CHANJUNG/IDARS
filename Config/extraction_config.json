@@ -9,7 +9,7 @@
                         {
                             "name": "on_board_date",
                             "label": "선적일",
-                            "prompt": "선적일을 찾아주세요. 'Date of Issue'가 아닌 'On Board Date', 'Laden on Board the Vessel' 등의 실제 선적일을 추출해주세요.",
+                            "prompt": "선적일을 찾아주세요. 'Date of Issue'가 아닌 'On Board Date', 'Shipped on Board Date', 'Laden on Board the Vessel' 등의 실제 선적일을 추출해주세요.",
                             "output_format": {
                                 "value": "YYYY-MM-DD",
                                 "format": "date"
@@ -36,10 +36,10 @@
                         {
                             "name": "quantity",
                             "label": "수량",
-                            "prompt": "수량으로 Net Weight를 사용하세요.",
+                            "prompt": "화물의 실제 수량을 찾아주세요. 'Total Number of Packages', 'NO. OF PKGS', 'Quantity', 'QTY' 등의 표시를 찾으세요. 일반적으로 'CTNS' (cartons), 'PKGS' (packages), 'PCS' (pieces), 'BAGS', 'DRUMS' 등의 단위로 표시됩니다. 예: '12000 PCS', '150 CTNS', '8640PCS'. 찾지 못하면 Net Weight를 사용하세요.",
                             "output_format": {
                                 "value": 0,
-                                "unit": "MT"
+                                "unit": "PCS"
                             }
                         },
                         {
@@ -234,7 +234,7 @@
                         {
                             "name": "on_board_date",
                             "label": "선적일",
-                            "prompt": "선적일을 찾아주세요. 'Date of Issue'가 아닌 'On Board Date', 'Laden on Board the Vessel' 등의 실제 선적일을 추출해주세요.",
+                            "prompt": "선적일을 찾아주세요. 'Date of Issue'가 아닌 'On Board Date', 'Shipped on Board Date', 'Laden on Board the Vessel' 등의 실제 선적일을 추출해주세요.",
                             "output_format": {
                                 "value": "YYYY-MM-DD",
                                 "format": "date"
@@ -261,10 +261,10 @@
                         {
                             "name": "quantity",
                             "label": "수량",
-                            "prompt": "수량으로 Net Weight를 사용하세요.",
+                            "prompt": "화물의 실제 수량을 찾아주세요. 'Total Number of Packages', 'NO. OF PKGS', 'Quantity', 'QTY' 등의 표시를 찾으세요. 일반적으로 'CTNS' (cartons), 'PKGS' (packages), 'PCS' (pieces), 'BAGS', 'DRUMS' 등의 단위로 표시됩니다. 예: '12000 PCS', '150 CTNS', '8640PCS'. 찾지 못하면 Net Weight를 사용하세요.",
                             "output_format": {
                                 "value": 0,
-                                "unit": "MT"
+                                "unit": "PCS"
                             }
                         },
                         {
