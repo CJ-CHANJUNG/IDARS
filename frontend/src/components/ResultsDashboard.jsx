@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useProject } from '../context/ProjectContext';
 import './ResultsDashboard.css';
 
 const ResultsDashboard = ({ project }) => {
+    const {
+        DEFAULT_COLUMNS
+    } = useProject();
+
     const [results, setResults] = useState([]);
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -16,7 +21,7 @@ const ResultsDashboard = ({ project }) => {
     const loadDashboard = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`/api/projects/${project.id}/step4/run`);
+            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/step4/run`);
             const data = await response.json();
 
             if (data.status === 'success') {
@@ -31,22 +36,63 @@ const ResultsDashboard = ({ project }) => {
         }
     };
 
-    const getStatusColor = (status) => {
+    const handleDownloadExcel = async () => {
+        try {
+            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/step4/export`);
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Reconciliation_Results_${project.id}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            } else {
+                alert('엑셀 다운로드 실패');
+            }
+        } catch (error) {
+            console.error('Download failed:', error);
+            alert('다운로드 중 오류 발생');
+        }
+    };
+
+    const getStatusIcon = (status) => {
         switch (status) {
-            case 'MATCH': return '#4caf50';
-            case 'MISMATCH': return '#ff9800';
-            case 'MISSING_EVIDENCE': return '#f44336';
-            default: return '#9e9e9e';
+            case 'complete_match': return '🟢';
+            case 'partial_error': return '🔴';
+            case 'review_required': return '🟡';
+            default: return '⚪'; // Missing or Unknown
+        }
+    };
+
+    const getStatusText = (status) => {
+        switch (status) {
+            case 'complete_match': return 'PASS';
+            case 'partial_error': return 'FAIL';
+            case 'review_required': return 'WARN';
+            default: return '미수집';
         }
     };
 
     const filteredResults = results.filter(item => {
         if (filter === 'all') return true;
-        if (filter === 'match') return item.Status === 'MATCH';
-        if (filter === 'mismatch') return item.Status === 'MISMATCH';
-        if (filter === 'missing') return item.Status === 'MISSING_EVIDENCE';
+        if (filter === 'match') return item.final_judgment === 'complete_match';
+        if (filter === 'mismatch') return item.final_judgment === 'partial_error';
+        if (filter === 'missing') return item.final_judgment === 'MISSING' || item.final_judgment === 'review_required';
         return true;
     });
+
+    // Dynamic Columns from Step 1 Data (excluding the fixed ones)
+    const fixedColumns = ['final_judgment', 'date_status', 'amount_status', 'incoterms_status', 'quantity_status'];
+
+    // Use DEFAULT_COLUMNS if available, otherwise fallback to dynamic keys
+    const step1Columns = DEFAULT_COLUMNS && DEFAULT_COLUMNS.length > 0
+        ? DEFAULT_COLUMNS
+        : (results.length > 0
+            ? Object.keys(results[0]).filter(key => !fixedColumns.includes(key) && !key.startsWith('_'))
+            : []);
 
     if (loading) {
         return (
@@ -62,11 +108,18 @@ const ResultsDashboard = ({ project }) => {
     return (
         <div className="dashboard-container">
             <div className="dashboard-header">
-                <h1>📊 결과 대시보드</h1>
-                <p className="project-name">프로젝트: {project?.name || project?.id}</p>
-                <button onClick={loadDashboard} className="refresh-btn">
-                    🔄 새로고침
-                </button>
+                <div className="header-title">
+                    <h1>📊 결과 대시보드</h1>
+                    <p className="project-name">프로젝트: {project?.name || project?.id}</p>
+                </div>
+                <div className="header-actions">
+                    <button onClick={handleDownloadExcel} className="excel-btn">
+                        📥 엑셀 다운로드
+                    </button>
+                    <button onClick={loadDashboard} className="refresh-btn">
+                        🔄 새로고침
+                    </button>
+                </div>
             </div>
 
             {/* Summary Cards */}
@@ -82,7 +135,7 @@ const ResultsDashboard = ({ project }) => {
                 <div className="summary-card match">
                     <div className="card-icon">✅</div>
                     <div className="card-content">
-                        <h3>일치</h3>
+                        <h3>일치 (PASS)</h3>
                         <p className="card-value">{summary?.matched || 0}</p>
                         <p className="card-percentage">
                             {summary?.total ? ((summary.matched / summary.total) * 100).toFixed(1) : 0}%
@@ -93,7 +146,7 @@ const ResultsDashboard = ({ project }) => {
                 <div className="summary-card mismatch">
                     <div className="card-icon">⚠️</div>
                     <div className="card-content">
-                        <h3>불일치</h3>
+                        <h3>불일치 (FAIL)</h3>
                         <p className="card-value">{summary?.mismatched || 0}</p>
                         <p className="card-percentage">
                             {summary?.total ? ((summary.mismatched / summary.total) * 100).toFixed(1) : 0}%
@@ -104,7 +157,7 @@ const ResultsDashboard = ({ project }) => {
                 <div className="summary-card missing">
                     <div className="card-icon">❌</div>
                     <div className="card-content">
-                        <h3>증빙 누락</h3>
+                        <h3>확인 필요 (WARN/MISSING)</h3>
                         <p className="card-value">{summary?.missing || 0}</p>
                         <p className="card-percentage">
                             {summary?.total ? ((summary.missing / summary.total) * 100).toFixed(1) : 0}%
@@ -115,73 +168,72 @@ const ResultsDashboard = ({ project }) => {
 
             {/* Filter Buttons */}
             <div className="filter-controls">
-                <button
-                    className={filter === 'all' ? 'active' : ''}
-                    onClick={() => setFilter('all')}
-                >
+                <button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>
                     전체 ({results.length})
                 </button>
-                <button
-                    className={filter === 'match' ? 'active' : ''}
-                    onClick={() => setFilter('match')}
-                >
+                <button className={filter === 'match' ? 'active' : ''} onClick={() => setFilter('match')}>
                     ✅ 일치 ({summary?.matched || 0})
                 </button>
-                <button
-                    className={filter === 'mismatch' ? 'active' : ''}
-                    onClick={() => setFilter('mismatch')}
-                >
+                <button className={filter === 'mismatch' ? 'active' : ''} onClick={() => setFilter('mismatch')}>
                     ⚠️ 불일치 ({summary?.mismatched || 0})
                 </button>
-                <button
-                    className={filter === 'missing' ? 'active' : ''}
-                    onClick={() => setFilter('missing')}
-                >
-                    ❌ 누락 ({summary?.missing || 0})
+                <button className={filter === 'missing' ? 'active' : ''} onClick={() => setFilter('missing')}>
+                    ❌ 확인필요 ({summary?.missing || 0})
                 </button>
             </div>
 
             {/* Results Table */}
             <div className="results-section">
                 <h2>상세 결과 ({filteredResults.length})</h2>
-                <div className="results-table-container">
+                <div className="results-table-wrapper">
                     <table className="results-table">
                         <thead>
                             <tr>
-                                <th>상태</th>
-                                <th>전표번호</th>
-                                <th>금액</th>
-                                <th>수량</th>
-                                <th>날짜</th>
-                                <th>Incoterms</th>
-                                <th>메모</th>
+                                {/* Fixed Headers */}
+                                <th className="sticky-col col-1">최종판단</th>
+                                <th className="sticky-col col-2">날짜</th>
+                                <th className="sticky-col col-3">금액</th>
+                                <th className="sticky-col col-4">인코텀즈</th>
+                                <th className="sticky-col col-5">수량</th>
+                                {/* Scrollable Step 1 Headers */}
+                                {step1Columns.map(col => (
+                                    <th key={col}>{col}</th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody>
                             {filteredResults.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" style={{ textAlign: 'center', padding: '40px' }}>
+                                    <td colSpan={5 + step1Columns.length} style={{ textAlign: 'center', padding: '40px' }}>
                                         데이터가 없습니다
                                     </td>
                                 </tr>
                             ) : (
                                 filteredResults.map((item, idx) => (
                                     <tr key={idx}>
-                                        <td>
-                                            <span
-                                                className="status-badge"
-                                                style={{ backgroundColor: getStatusColor(item.Status) }}
-                                            >
-                                                {item.Status === 'MATCH' ? '일치' :
-                                                    item.Status === 'MISMATCH' ? '불일치' : '누락'}
+                                        {/* Fixed Columns */}
+                                        <td className="sticky-col col-1" style={{ textAlign: 'center' }}>
+                                            <span title={getStatusText(item.final_judgment)} style={{ fontSize: '1.2rem' }}>
+                                                {getStatusIcon(item.final_judgment)}
                                             </span>
                                         </td>
-                                        <td>{item.Billing_Document}</td>
-                                        <td>{item.Amount_Result || '-'}</td>
-                                        <td>{item.Quantity_Result || '-'}</td>
-                                        <td>{item.Date_Result || '-'}</td>
-                                        <td>{item.Incoterms_Result || '-'}</td>
-                                        <td className="notes-cell">{item.Notes || ''}</td>
+                                        <td className={`sticky-col col-2 ${item.date_status === '불일치' ? 'text-red' : 'text-green'}`}>
+                                            {item.date_status}
+                                        </td>
+                                        <td className={`sticky-col col-3 ${item.amount_status === '불일치' ? 'text-red' : 'text-green'}`}>
+                                            {item.amount_status}
+                                        </td>
+                                        <td className={`sticky-col col-4 ${item.incoterms_status === '불일치' ? 'text-red' : 'text-green'}`}>
+                                            {item.incoterms_status}
+                                        </td>
+                                        <td className={`sticky-col col-5 ${item.quantity_status === '불일치' ? 'text-red' : 'text-green'}`}>
+                                            {item.quantity_status}
+                                        </td>
+
+                                        {/* Scrollable Step 1 Data */}
+                                        {step1Columns.map(col => (
+                                            <td key={col}>{item[col]}</td>
+                                        ))}
                                     </tr>
                                 ))
                             )}

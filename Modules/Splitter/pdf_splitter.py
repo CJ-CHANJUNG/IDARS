@@ -37,6 +37,8 @@ DOCUMENT_PATTERNS = {
         (r'SURRENDER', 95), (r'TELEX\s*RELEASE', 95),
         (r'PORT\s*OF\s*LOADING', 60), (r'PORT\s*OF\s*DISCHARGE', 60), (r'CLEAN\s*ON\s*BOARD', 70),
         (r'FREIGHT\s*PREPAID', 60),
+        (r'e-B/L', 100), (r'ELECTRONIC\s*BILL\s*OF\s*LADING', 100),
+        (r'\bB\s*/\s*L\b', 85),  # B/L, B / L (점수 하향: Invoice 내 참조 문구와 충돌 방지)
     ],
     'Commercial_Invoice': [
         (r'COMMERCIAL\s*INVOICE', 100), (r'TAX\s*INVOICE', 100), (r'PROFORMA\s*INVOICE', 100),

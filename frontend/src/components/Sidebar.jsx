@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import './Sidebar.css';
 
 const MENU_ITEMS = [
-    { id: 'mother', icon: '🏠', label: '메인 워크스페이스', subLabel: 'Main Workspace' },
     { id: 'step1', icon: '✅', label: 'Step 1: 전표 확정', subLabel: 'Invoice Confirmation' },
     { id: 'step2', icon: '📂', label: 'Step 2: 증빙 수집', subLabel: 'Evidence Collection' },
     { id: 'step3', icon: '🔍', label: 'Step 3: 데이터 추출', subLabel: 'Data Extraction' },

@@ -345,55 +345,99 @@ class SmartExtractionEngine:
    - 추측: 0.1 ~ 0.5
 """
         
-        try:
-            # 비동기 호출
-            response = await self.gemini_model.generate_content_async(prompt)
-            
-            # 토큰 사용량 계산
-            usage = response.usage_metadata
-            input_tokens = usage.prompt_token_count
-            output_tokens = usage.candidates_token_count
-            total_tokens = usage.total_token_count
-            
-            # 예상 비용 계산 (Gemini 1.5 Flash 기준)
-            input_cost = (input_tokens / 1_000_000) * 0.075 * 1400
-            output_cost = (output_tokens / 1_000_000) * 0.30 * 1400
-            total_cost = input_cost + output_cost
-            
-            token_info = {
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "total_tokens": total_tokens,
-                "estimated_cost_krw": round(total_cost, 2)
-            }
-            
-            raw_text = response.text.strip()
-            
-            # Markdown JSON 블록 제거
-            raw_text = raw_text.replace('```json', '').replace('```', '').strip()
-            if raw_text.lower().startswith('json'):
-                raw_text = raw_text[4:].strip()
-            
-            raw_result = json.loads(raw_text)
-            raw_result['token_usage'] = token_info
-            
-            # ✅ DataNormalizer 적용
-            if self.data_normalizer:
-                normalized_result = self.data_normalizer.normalize_extraction_result(raw_result)
-                normalized_result['token_usage'] = token_info
-                return normalized_result
-            else:
-                return raw_result
-            
-        except Exception as e:
-            print(f"❌ Gemini API 비동기 호출 오류: {e}")
-            return {
-                "document_type": doc_type,
-                "confidence": 0.0,
-                "fields": {},
-                "field_confidence": {},
-                "notes": f"API 오류: {e}"
-            }
+        max_retries = 3
+        retry_delay = 2
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # 비동기 호출
+                response = await self.gemini_model.generate_content_async(prompt)
+                
+                # 토큰 사용량 계산
+                usage = response.usage_metadata
+                input_tokens = usage.prompt_token_count
+                output_tokens = usage.candidates_token_count
+                total_tokens = usage.total_token_count
+                
+                # 예상 비용 계산 (Gemini 1.5 Flash 기준)
+                input_cost = (input_tokens / 1_000_000) * 0.075 * 1400
+                output_cost = (output_tokens / 1_000_000) * 0.30 * 1400
+                total_cost = input_cost + output_cost
+                
+                token_info = {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens,
+                    "estimated_cost_krw": round(total_cost, 2)
+                }
+                
+                raw_text = response.text.strip()
+                
+                # Markdown JSON 블록 제거
+                raw_text = raw_text.replace('```json', '').replace('```', '').strip()
+                if raw_text.lower().startswith('json'):
+                    raw_text = raw_text[4:].strip()
+                
+                raw_result = json.loads(raw_text)
+                raw_result['token_usage'] = token_info
+                
+                # ✅ DataNormalizer 적용
+                if self.data_normalizer:
+                    normalized_result = self.data_normalizer.normalize_extraction_result(raw_result)
+                    normalized_result['token_usage'] = token_info
+                else:
+                    normalized_result = raw_result
+                
+                # ✅ 결과 검증 (Validation)
+                # 중요 필드가 비어있고, OCR 텍스트가 충분히 긴 경우 재시도
+                is_valid = True
+                validation_note = ""
+                
+                # 검증 대상 필드 (문서 타입별)
+                critical_fields = []
+                if doc_type == "INVOICE":
+                    critical_fields = ['total_amount', 'sailing_date']
+                elif doc_type == "BL":
+                    critical_fields = ['bl_number']
+                
+                fields = normalized_result.get('fields', {})
+                
+                for field_name in critical_fields:
+                    field_data = fields.get(field_name, {})
+                    # 값이 None이거나 빈 문자열이면 실패로 간주
+                    if not field_data or field_data.get('value') in [None, "", 0]:
+                        is_valid = False
+                        validation_note = f"Critical field missing: {field_name}"
+                        break
+                
+                # OCR 텍스트가 너무 짧으면(스캔 실패 등) 재시도 의미 없음
+                if len(ocr_text) < 50:
+                    is_valid = True # 그냥 통과시킴 (어차피 추출 불가)
+                
+                if is_valid:
+                    return normalized_result
+                else:
+                    print(f"   ⚠️ 검증 실패 ({attempt+1}/{max_retries}): {validation_note}")
+                    if attempt < max_retries:
+                        await asyncio.sleep(retry_delay * (2 ** attempt))
+                        continue
+                    else:
+                        # 마지막 시도에서도 실패하면 그대로 반환하되 노트 추가
+                        normalized_result['notes'] = f"{normalized_result.get('notes', '')} [Validation Failed: {validation_note}]"
+                        return normalized_result
+                
+            except Exception as e:
+                print(f"❌ Gemini API 오류 ({attempt+1}/{max_retries}): {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep(retry_delay * (2 ** attempt))
+                else:
+                    return {
+                        "document_type": doc_type,
+                        "confidence": 0.0,
+                        "fields": {},
+                        "field_confidence": {},
+                        "notes": f"API 오류 (Max Retries): {e}"
+                    }
 
     async def process_single_pdf_async(self, pdf_path: str, slip_id: str, extraction_mode: str = 'basic') -> Dict:
         """

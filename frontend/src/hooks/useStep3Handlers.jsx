@@ -9,7 +9,8 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
         project,
         comparisonResults, setComparisonResults,
         extractionMode,
-        setIsLoading
+        setIsLoading,
+        setSidebarView
     } = useProject();
 
     const handleStep3SelectAll = (e) => {
@@ -147,15 +148,78 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
         }));
     };
 
-    const handleFinalConfirm = (billingDocument) => {
-        // TODO: Implement single row confirmation logic if needed
-        console.log('Final confirm for:', billingDocument);
+    const handleFinalConfirm = async (selectedCorrections, selectedIds, finalJudgments) => {
+        if (!project?.id) return;
+
+        // Prepare judgments payload
+        const judgments = {};
+        selectedIds.forEach(docId => {
+            // Use the status from finalJudgments if available, otherwise default to current status?
+            // Actually, finalJudgments contains the *current UI state* of the dropdowns.
+            if (finalJudgments[docId]) {
+                judgments[docId] = finalJudgments[docId];
+            }
+        });
+
+        if (Object.keys(judgments).length === 0) {
+            console.warn('No judgments to save');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `http://127.0.0.1:5000/api/projects/${project.id}/step3/confirm-judgment`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        judgments: judgments,
+                        projectsDir: 'Data/projects'
+                    })
+                }
+            );
+
+            if (response.ok) {
+                // alert('✅ 최종 판단이 저장되었습니다.'); // ComparisonTableEnhanced already alerts
+                console.log('Judgments saved successfully');
+
+                // Update local state to reflect changes (optional, but good for consistency)
+                setComparisonResults(prev => prev.map(row => {
+                    if (judgments[row.billing_document]) {
+                        return {
+                            ...row,
+                            auto_comparison: {
+                                ...row.auto_comparison,
+                                status: judgments[row.billing_document]
+                            }
+                        };
+                    }
+                    return row;
+                }));
+            } else {
+                const error = await response.json();
+                alert('저장 실패: ' + (error.error || '알 수 없는 오류'));
+            }
+        } catch (err) {
+            alert('오류 발생: ' + err.message);
+        }
     };
 
     const handleSendToDashboard = async () => {
-        if (!project?.id) return;
-        if (!window.confirm('추출된 결과를 대시보드로 전송하시겠습니까?')) return;
+        console.log('[DEBUG] handleSendToDashboard called');
+        console.log('[DEBUG] Project:', project);
 
+        if (!project?.id) {
+            console.error('[DEBUG] No project ID found');
+            return;
+        }
+
+        if (!window.confirm('추출된 결과를 대시보드로 전송하시겠습니까?')) {
+            console.log('[DEBUG] User cancelled confirm');
+            return;
+        }
+
+        console.log('[DEBUG] Sending request...');
         try {
             const response = await fetch(
                 `http://127.0.0.1:5000/api/projects/${project.id}/step3/send-to-dashboard`,
@@ -168,6 +232,10 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
 
             if (response.ok) {
                 alert('✅ 결과가 대시보드로 전송되었습니다.');
+                // Navigate to Dashboard
+                if (setSidebarView) {
+                    setSidebarView('step4');
+                }
             } else {
                 const error = await response.json();
                 alert('전송 실패: ' + (error.error || '알 수 없는 오류'));
@@ -187,3 +255,5 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
         handleSendToDashboard
     };
 };
+
+// End of hook

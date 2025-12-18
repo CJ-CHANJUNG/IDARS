@@ -3,7 +3,6 @@ import { ProjectProvider, useProject } from './context/ProjectContext'
 import Sidebar from './components/Sidebar'
 import LandingPage from './components/LandingPage'
 import ProjectListModal from './components/ProjectListModal'
-import MotherWorkspace from './components/MotherWorkspace'
 import Step1InvoiceConfirmation from './components/steps/Step1InvoiceConfirmation'
 import Step2EvidenceCollection from './components/steps/Step2EvidenceCollection'
 import Step3DataExtraction from './components/steps/Step3DataExtraction'
@@ -54,7 +53,7 @@ function AppContent() {
         if (source === 'local' || source === 'sap') {
           setSidebarView('step1');
         } else {
-          setSidebarView('mother');
+          setSidebarView('step1');
         }
       } else {
         alert('프로젝트 생성 실패: ' + newProject.error);
@@ -72,11 +71,12 @@ function AppContent() {
   const handleProjectSelect = (projectId) => {
     loadProjectData(projectId);
     setIsProjectListOpen(false);
+    setSidebarView('step1'); // Default to Step 1 on load
   };
 
   const handleGoHome = () => {
     setCurrentView('landing');
-    setSidebarView('mother');
+    setSidebarView('step1');
   };
 
   const handleMenuClick = (id) => {
@@ -133,20 +133,7 @@ function AppContent() {
             </div>
 
             <div className="content-area">
-              {sidebarView === 'mother' && (
-                <MotherWorkspace
-                  project={project}
-                  onNavigateToStep={(stepNum) => {
-                    if (stepNum === 1) setSidebarView('step1');
-                    else if (stepNum === 2) setSidebarView('step2');
-                    else if (stepNum === 3) setSidebarView('step3');
-                    else if (stepNum === 4) setSidebarView('step4');
-                  }}
-                  onRefresh={() => {
-                    if (project) loadProjectData(project.id);
-                  }}
-                />
-              )}
+              {/* MotherWorkspace removed */}
 
               {sidebarView === 'step1' && <Step1InvoiceConfirmation />}
               {sidebarView === 'step2' && <Step2EvidenceCollection />}

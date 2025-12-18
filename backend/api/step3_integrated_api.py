@@ -531,11 +531,16 @@ def send_to_dashboard(project_id):
     """
     대사결과 확정하여 대시보드로 전송
     """
+    print(f"[DEBUG] send_to_dashboard called for {project_id}")
     try:
-        data = request.json
-        projects_dir = data.get('projectsDir', 'Data/projects')
+        # Calculate absolute path for PROJECTS_DIR
+        # Assuming this file is in backend/api/
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        PROJECTS_DIR = os.path.join(BASE_DIR, 'Data', 'projects')
         
-        project_path = os.path.join(projects_dir, project_id)
+        project_path = os.path.join(PROJECTS_DIR, project_id)
+        print(f"[DEBUG] Project Path: {project_path}")
+        
         step3_dir = os.path.join(project_path, 'step3_data_extraction')
         
         # Load final comparison results (or auto if no corrections)
@@ -624,12 +629,17 @@ def get_extraction_data(project_id):
             
             # Merge
             for item in auto_results:
-                billing_doc = item['billing_document']
+                # Ensure billing_doc is string for lookup
+                billing_doc = str(item.get('billing_document', ''))
+                
                 if billing_doc in results_data:
                     final_info = results_data[billing_doc]
                     # Update status and add corrections
-                    item['auto_comparison']['status'] = final_info.get('final_status', item['auto_comparison']['status'])
+                    if 'final_status' in final_info:
+                        item['auto_comparison']['status'] = final_info['final_status']
+                    
                     item['user_corrections'] = final_info.get('user_corrections', {})
+                
                 response_data.append(item)
         else:
             response_data = []
