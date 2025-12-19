@@ -345,55 +345,68 @@ class SmartExtractionEngine:
    - 추측: 0.1 ~ 0.5
 """
         
-        try:
-            # 비동기 호출
-            response = await self.gemini_model.generate_content_async(prompt)
-            
-            # 토큰 사용량 계산
-            usage = response.usage_metadata
-            input_tokens = usage.prompt_token_count
-            output_tokens = usage.candidates_token_count
-            total_tokens = usage.total_token_count
-            
-            # 예상 비용 계산 (Gemini 1.5 Flash 기준)
-            input_cost = (input_tokens / 1_000_000) * 0.075 * 1400
-            output_cost = (output_tokens / 1_000_000) * 0.30 * 1400
-            total_cost = input_cost + output_cost
-            
-            token_info = {
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "total_tokens": total_tokens,
-                "estimated_cost_krw": round(total_cost, 2)
-            }
-            
-            raw_text = response.text.strip()
-            
-            # Markdown JSON 블록 제거
-            raw_text = raw_text.replace('```json', '').replace('```', '').strip()
-            if raw_text.lower().startswith('json'):
-                raw_text = raw_text[4:].strip()
-            
-            raw_result = json.loads(raw_text)
-            raw_result['token_usage'] = token_info
-            
-            # ✅ DataNormalizer 적용
-            if self.data_normalizer:
-                normalized_result = self.data_normalizer.normalize_extraction_result(raw_result)
-                normalized_result['token_usage'] = token_info
-                return normalized_result
-            else:
-                return raw_result
-            
-        except Exception as e:
-            print(f"❌ Gemini API 비동기 호출 오류: {e}")
-            return {
-                "document_type": doc_type,
-                "confidence": 0.0,
-                "fields": {},
-                "field_confidence": {},
-                "notes": f"API 오류: {e}"
-            }
+        # 재시도 설정
+        max_retries = 5
+        base_delay = 10  # 초
+        
+        for attempt in range(max_retries):
+            try:
+                # 비동기 호출
+                response = await self.gemini_model.generate_content_async(prompt)
+                
+                # 토큰 사용량 계산
+                usage = response.usage_metadata
+                input_tokens = usage.prompt_token_count
+                output_tokens = usage.candidates_token_count
+                total_tokens = usage.total_token_count
+                
+                # 예상 비용 계산 (Gemini 1.5 Flash 기준)
+                input_cost = (input_tokens / 1_000_000) * 0.075 * 1400
+                output_cost = (output_tokens / 1_000_000) * 0.30 * 1400
+                total_cost = input_cost + output_cost
+                
+                token_info = {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens,
+                    "estimated_cost_krw": round(total_cost, 2)
+                }
+                
+                raw_text = response.text.strip()
+                
+                # Markdown JSON 블록 제거
+                raw_text = raw_text.replace('```json', '').replace('```', '').strip()
+                if raw_text.lower().startswith('json'):
+                    raw_text = raw_text[4:].strip()
+                
+                raw_result = json.loads(raw_text)
+                raw_result['token_usage'] = token_info
+                
+                # ✅ DataNormalizer 적용
+                if self.data_normalizer:
+                    normalized_result = self.data_normalizer.normalize_extraction_result(raw_result)
+                    normalized_result['token_usage'] = token_info
+                    return normalized_result
+                else:
+                    return raw_result
+                
+            except Exception as e:
+                error_msg = str(e)
+                if "429" in error_msg or "quota" in error_msg.lower() or "limit" in error_msg.lower():
+                    delay = base_delay * (2 ** attempt)
+                    print(f"⚠️ Gemini API 할당량 초과 ({attempt+1}/{max_retries}). {delay}초 후 재시도... 에러: {error_msg[:100]}")
+                    await asyncio.sleep(delay)
+                else:
+                    print(f"❌ Gemini API 비동기 호출 오류: {e}")
+                    break
+        
+        return {
+            "document_type": doc_type,
+            "confidence": 0.0,
+            "fields": {},
+            "field_confidence": {},
+            "notes": f"API 오류 (재시도 실패): {doc_type}"
+        }
 
     async def process_single_pdf_async(self, pdf_path: str, slip_id: str, extraction_mode: str = 'basic') -> Dict:
         """
@@ -521,11 +534,14 @@ class SmartExtractionEngine:
         
         # 모든 PDF 파일 수집 (extraction_targets만 스캔하여 속도 향상)
         tasks = []
-        semaphore = asyncio.Semaphore(3)  # 동시에 3개까지만 처리 (메모리 보호)
+        semaphore = asyncio.Semaphore(1)  # 무료 티어 안정성을 위해 순차 처리 (1개씩)
         
         async def sem_task(pdf_path, slip_id):
             async with semaphore:
-                return await self.process_single_pdf_async(pdf_path, slip_id, extraction_mode)
+                result = await self.process_single_pdf_async(pdf_path, slip_id, extraction_mode)
+                # 무료 티어 RPM(20) 준수를 위해 요청 간 간격 유지 (약 4초)
+                await asyncio.sleep(4)
+                return result
         
         # ★ 진행률 초기화
         slip_folders = [f for f in os.listdir(split_dir) if os.path.isdir(os.path.join(split_dir, f))]

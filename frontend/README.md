@@ -17,3 +17,4 @@ If you are developing a production application, we recommend using TypeScript wi
 ##실행 명령어 새로운 터미널에서
 cd "d:/CJ/Project Manager/IDARS/IDARS PJT/frontend"
 npm run dev
+context7 API Key ctx7sk-f5a35533-73e4-461d-8197-8e0ff20f5e6c

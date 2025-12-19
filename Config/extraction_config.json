@@ -140,7 +140,7 @@
                         {
                             "name": "total_quantity",
                             "label": "수량",
-                            "prompt": "총 수량을 찾아주세요.",
+                            "prompt": "문서의 최종 합계 수량(Total Quantity)을 우선적으로 추출하세요. 만약 제공된 [Step 1 전표 확정값]과 합계가 일치하지 않는다면, 문서 내에서 해당 확정값과 일치하는 개별 라인 아이템의 수량을 찾아 추출하세요.",
                             "output_format": {
                                 "value": 0,
                                 "unit": "MT"
@@ -149,7 +149,7 @@
                         {
                             "name": "total_amount",
                             "label": "금액",
-                            "prompt": "총 금액을 찾아주세요.",
+                            "prompt": "문서의 최종 합계 금액(Total Amount)을 우선적으로 추출하세요. 만약 제공된 [Step 1 전표 확정값]과 합계가 일치하지 않는다면, 문서 내에서 해당 확정값과 일치하는 개별 라인 아이템의 금액을 찾아 추출하세요.",
                             "output_format": {
                                 "value": 0,
                                 "currency": "USD"
@@ -365,7 +365,7 @@
                         {
                             "name": "total_quantity",
                             "label": "수량",
-                            "prompt": "총 수량을 찾아주세요.",
+                            "prompt": "문서의 최종 합계 수량(Total Quantity)을 우선적으로 추출하세요. 만약 제공된 [Step 1 전표 확정값]과 합계가 일치하지 않는다면, 문서 내에서 해당 확정값과 일치하는 개별 라인 아이템의 수량을 찾아 추출하세요.",
                             "output_format": {
                                 "value": 0,
                                 "unit": "MT"
@@ -374,7 +374,7 @@
                         {
                             "name": "total_amount",
                             "label": "금액",
-                            "prompt": "총 금액을 찾아주세요.",
+                            "prompt": "문서의 최종 합계 금액(Total Amount)을 우선적으로 추출하세요. 만약 제공된 [Step 1 전표 확정값]과 합계가 일치하지 않는다면, 문서 내에서 해당 확정값과 일치하는 개별 라인 아이템의 금액을 찾아 추출하세요.",
                             "output_format": {
                                 "value": 0,
                                 "currency": "USD"

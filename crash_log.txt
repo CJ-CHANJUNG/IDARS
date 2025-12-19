@@ -1,0 +1,68 @@
+[2025-12-19 08:46:48.112419] Crash in step3_integrated_api: name 'tasks' is not defined
+Traceback (most recent call last):
+  File "d:\CJ\Project Manager\IDARS\IDARS PJT\backend\api\step3_integrated_api.py", line 139, in extract_and_compare
+    extraction_results_raw = asyncio.run(engine.process_project_pdfs_async(
+        project_id=project_id,
+    ...<4 lines>...
+        expected_values_map=expected_values_map
+    ))
+  File "C:\Users\pcj503\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\pcj503\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\pcj503\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "d:\CJ\Project Manager\IDARS\IDARS PJT\backend\..\Modules\Parser\smart_extraction_engine.py", line 606, in process_project_pdfs_async
+    tasks.append(sem_task(pdf_path, slip_id))
+    ^^^^^
+NameError: name 'tasks' is not defined
+[2025-12-19 08:48:16.449040] Crash in step3_integrated_api: name 'sem_task' is not defined
+Traceback (most recent call last):
+  File "d:\CJ\Project Manager\IDARS\IDARS PJT\backend\api\step3_integrated_api.py", line 139, in extract_and_compare
+    extraction_results_raw = asyncio.run(engine.process_project_pdfs_async(
+        project_id=project_id,
+    ...<4 lines>...
+        expected_values_map=expected_values_map
+    ))
+  File "C:\Users\pcj503\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\pcj503\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\pcj503\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "d:\CJ\Project Manager\IDARS\IDARS PJT\backend\..\Modules\Parser\smart_extraction_engine.py", line 607, in process_project_pdfs_async
+    tasks.append(sem_task(pdf_path, slip_id))
+                 ^^^^^^^^
+NameError: name 'sem_task' is not defined
+[2025-12-19 08:50:31.896626] Crash in step3_integrated_api: 'SmartExtractionEngine' object has no attribute 'semaphore'
+Traceback (most recent call last):
+  File "d:\CJ\Project Manager\IDARS\IDARS PJT\backend\api\step3_integrated_api.py", line 139, in extract_and_compare
+    extraction_results_raw = asyncio.run(engine.process_project_pdfs_async(
+        project_id=project_id,
+    ...<4 lines>...
+        expected_values_map=expected_values_map
+    ))
+  File "C:\Users\pcj503\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\pcj503\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\pcj503\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "d:\CJ\Project Manager\IDARS\IDARS PJT\backend\..\Modules\Parser\smart_extraction_engine.py", line 637, in process_project_pdfs_async
+    raise e
+  File "d:\CJ\Project Manager\IDARS\IDARS PJT\backend\..\Modules\Parser\smart_extraction_engine.py", line 629, in process_project_pdfs_async
+    results = await asyncio.gather(*tasks)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "d:\CJ\Project Manager\IDARS\IDARS PJT\backend\..\Modules\Parser\smart_extraction_engine.py", line 582, in sem_task
+    async with self.semaphore:
+               ^^^^^^^^^^^^^^
+AttributeError: 'SmartExtractionEngine' object has no attribute 'semaphore'

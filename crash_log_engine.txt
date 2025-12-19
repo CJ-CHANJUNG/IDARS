@@ -1,0 +1,9 @@
+[2025-12-19 08:50:31.886657] Crash in smart_extraction_engine gather: 'SmartExtractionEngine' object has no attribute 'semaphore'
+Traceback (most recent call last):
+  File "d:\CJ\Project Manager\IDARS\IDARS PJT\backend\..\Modules\Parser\smart_extraction_engine.py", line 629, in process_project_pdfs_async
+    results = await asyncio.gather(*tasks)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "d:\CJ\Project Manager\IDARS\IDARS PJT\backend\..\Modules\Parser\smart_extraction_engine.py", line 582, in sem_task
+    async with self.semaphore:
+               ^^^^^^^^^^^^^^
+AttributeError: 'SmartExtractionEngine' object has no attribute 'semaphore'

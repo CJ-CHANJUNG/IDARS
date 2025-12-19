@@ -79,6 +79,18 @@ def extract_and_compare(project_id):
         engine = SmartExtractionEngine()
         split_dir = os.path.join(project_path, 'step2_evidence_collection', 'split_documents')
         
+        # ✅ Step 1 데이터를 힌트로 변환 (사용자 제안 반영)
+        expected_values_map = {}
+        for row in step1_data:
+            # 컬럼명 유연하게 대응 (Billing Document 또는 전표번호)
+            slip_id = str(row.get('Billing Document', row.get('전표번호', '')))
+            if slip_id:
+                expected_values_map[slip_id] = {
+                    'total_amount': row.get('Amount', row.get('금액')),
+                    'total_quantity': row.get('Quantity', row.get('수량'))
+                }
+        print(f"[DEBUG] Created expected_values_map for {len(expected_values_map)} slips")
+
         # ★ 진행률 초기화
         from app import extraction_progress
         extraction_progress[project_id] = {
@@ -113,11 +125,6 @@ def extract_and_compare(project_id):
             
             if loop and loop.is_running():
                 print("[DEBUG] Event loop already running, using loop.run_until_complete is not possible here. Using create_task if in async context, but this is sync Flask.")
-                # This is tricky in sync Flask. If we are here, it means we are in a thread with an event loop?
-                # Usually Flask doesn't have one.
-                # If we are in a thread with a loop, we should use it?
-                # But asyncio.run() creates a NEW loop.
-                # Let's try to use a new thread to run the async code if we suspect loop issues.
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     extraction_results_raw = executor.submit(asyncio.run, engine.process_project_pdfs_async(
@@ -125,7 +132,8 @@ def extract_and_compare(project_id):
                         split_dir=split_dir,
                         extraction_mode=extraction_mode,
                         target_ids=target_ids,
-                        progress_callback=update_extraction_progress
+                        progress_callback=update_extraction_progress,
+                        expected_values_map=expected_values_map
                     )).result()
             else:
                 extraction_results_raw = asyncio.run(engine.process_project_pdfs_async(
@@ -133,7 +141,8 @@ def extract_and_compare(project_id):
                     split_dir=split_dir,
                     extraction_mode=extraction_mode,  # basic 또는 detailed
                     target_ids=target_ids,
-                    progress_callback=update_extraction_progress
+                    progress_callback=update_extraction_progress,
+                    expected_values_map=expected_values_map
                 ))
             print(f"[DEBUG] Async extraction completed. Results count: {len(extraction_results_raw)}")
             
