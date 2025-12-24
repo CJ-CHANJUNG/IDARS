@@ -13,10 +13,16 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
         setSidebarView
     } = useProject();
 
-    const handleStep3SelectAll = (e) => {
+    const handleStep3SelectAll = (e, specificIds = null) => {
         if (e.target.checked) {
-            const allIds = new Set(comparisonResults.map(row => row.billing_document));
-            setStep3SelectedRows(allIds);
+            if (specificIds) {
+                // If specific IDs are provided (e.g. from filtered view), select only those
+                setStep3SelectedRows(new Set(specificIds));
+            } else {
+                // Otherwise select all loaded results
+                const allIds = new Set(comparisonResults.map(row => row.billing_document));
+                setStep3SelectedRows(allIds);
+            }
         } else {
             setStep3SelectedRows(new Set());
         }
@@ -83,13 +89,39 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
             }
         } catch (err) {
             console.error(err);
-            alert('오류 발생: ' + err.message);
+            alert('증빙 파일을 검색하는데 실패했습니다.');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleViewEvidence = async (billingDocument, filterType = null) => {
+    const handleSaveDraft = async (finalJudgments) => {
+        if (!project?.id) return;
+
+        try {
+            const response = await fetch(
+                `http://127.0.0.1:5000/api/projects/${project.id}/step3/save-draft`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        judgments: finalJudgments
+                    })
+                }
+            );
+
+            if (response.ok) {
+                alert('✅ 임시 저장이 완료되었습니다.');
+            } else {
+                const error = await response.json();
+                alert('저장 실패: ' + (error.error || '알 수 없는 오류'));
+            }
+        } catch (err) {
+            alert('오류 발생: ' + err.message);
+        }
+    };
+
+    const handleViewEvidence = async (billingDocument, filterType = null, field = null, coordinates = null) => {
         try {
             const response = await fetch(
                 `http://127.0.0.1:5000/api/projects/${project.id}/evidence/search?billingDocument=${billingDocument}`
@@ -111,7 +143,7 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
                     if (filtered.length > 0) files = filtered;
                 }
 
-                // Sort to prioritize original files
+                // Sort: Original first
                 files.sort((a, b) => {
                     if (a.type === 'original' && b.type !== 'original') return -1;
                     if (a.type !== 'original' && b.type === 'original') return 1;
@@ -121,7 +153,17 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
                 // Open first PDF file in new window/tab
                 if (files.length > 0) {
                     const firstFile = files[0];
-                    const pdfUrl = `http://127.0.0.1:5000/api/projects/${project.id}/files/${firstFile.path}`;
+                    let pdfUrl = `http://127.0.0.1:5000/api/projects/${project.id}/files/${firstFile.path}`;
+
+                    // Append highlight coordinates if available
+                    if (coordinates && Array.isArray(coordinates) && coordinates.length === 4) {
+                        const [ymin, xmin, ymax, xmax] = coordinates;
+                        // Check if coordinates are valid (not all 0)
+                        if (ymin !== 0 || xmin !== 0 || ymax !== 0 || xmax !== 0) {
+                            pdfUrl += `?highlight=${ymin},${xmin},${ymax},${xmax}`;
+                        }
+                    }
+
                     window.open(pdfUrl, '_blank', 'width=1200,height=800,resizable=yes,scrollbars=yes');
                 }
             } else {
@@ -252,7 +294,8 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
         handleViewEvidence,
         handleUpdateField,
         handleFinalConfirm,
-        handleSendToDashboard
+        handleSendToDashboard,
+        handleSaveDraft
     };
 };
 

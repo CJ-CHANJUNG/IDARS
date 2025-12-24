@@ -176,6 +176,20 @@ class ReconciliationManager:
         
         final_status = status_map.get(report['status'], "review_required")
         
+        # ★ FIX: BL도 없고 Invoice도 없으면 'no_evidence' 상태로 강제 변경
+        # Invoice 데이터가 유효한지 확인 (적어도 하나 이상의 필드가 값이 있어야 함)
+        has_invoice = False
+        if step3_data:
+            for key in ['Date', 'Amount', 'Quantity', 'Incoterms']:
+                val = step3_data.get(key)
+                if isinstance(val, dict):
+                    if val.get('value'): has_invoice = True
+                elif val:
+                    has_invoice = True
+        
+        if not bl_data and not has_invoice:
+            final_status = "no_evidence"
+        
         # 상세 결과 매핑 (기존 UI 호환)
         details = str(report['details'])
         

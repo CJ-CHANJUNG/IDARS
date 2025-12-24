@@ -30,6 +30,7 @@ export const ProjectProvider = ({ children }) => {
     const [extractionData, setExtractionData] = useState([]);
     const [comparisonResults, setComparisonResults] = useState([]);
     const [extractionMode, setExtractionMode] = useState('basic');
+    const [finalJudgments, setFinalJudgments] = useState({}); // ★ Global state for judgments
 
     // History State
     const [history, setHistory] = useState([]);
@@ -146,6 +147,7 @@ export const ProjectProvider = ({ children }) => {
         extractionData, setExtractionData,
         comparisonResults, setComparisonResults,
         extractionMode, setExtractionMode,
+        finalJudgments, setFinalJudgments,
         history, setHistory,
         historyIndex, setHistoryIndex,
         DEFAULT_COLUMNS,

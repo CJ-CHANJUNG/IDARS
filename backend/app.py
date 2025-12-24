@@ -837,9 +837,68 @@ def get_evidence_status(project_id):
 
 @app.route('/api/projects/<project_id>/files/<path:filepath>', methods=['GET'])
 def serve_project_file(project_id, filepath):
-    """Serve files from the project directory"""
+    """Serve files from the project directory, optionally with highlighting"""
     try:
         project_dir = os.path.join(PROJECTS_DIR, project_id)
+        full_path = os.path.join(project_dir, filepath)
+        
+        if not os.path.exists(full_path):
+            return jsonify({"error": "File not found"}), 404
+
+        # Check for highlight query param: ?highlight=ymin,xmin,ymax,xmax
+        highlight_param = request.args.get('highlight')
+        
+        if highlight_param and filepath.lower().endswith('.pdf'):
+            try:
+                import fitz  # PyMuPDF
+                
+                # Parse coordinates
+                # Format: ymin,xmin,ymax,xmax (normalized 0-1000)
+                coords = [float(x) for x in highlight_param.split(',')]
+                if len(coords) == 4:
+                    ymin, xmin, ymax, xmax = coords
+                    
+                    # Open PDF
+                    doc = fitz.open(full_path)
+                    page = doc[0]  # Assume first page for now, or pass page param
+                    
+                    # Get page dimensions
+                    rect = page.rect
+                    width = rect.width
+                    height = rect.height
+                    
+                    # Convert normalized coordinates to PDF points
+                    # Note: PDF coordinates usually start from bottom-left, but fitz uses top-left (0,0)
+                    # Normalized 0-1000 usually assumes top-left origin (0,0) to bottom-right (1000,1000)
+                    
+                    x0 = (xmin / 1000) * width
+                    y0 = (ymin / 1000) * height
+                    x1 = (xmax / 1000) * width
+                    y1 = (ymax / 1000) * height
+                    
+                    # Draw rectangle
+                    # Set color to red (1, 0, 0), fill opacity 0.3
+                    shape = page.new_shape()
+                    shape.draw_rect(fitz.Rect(x0, y0, x1, y1))
+                    shape.finish(color=(1, 0, 0), fill=(1, 1, 0), fill_opacity=0.3, width=2)
+                    shape.commit()
+                    
+                    # Stream modified PDF
+                    pdf_bytes = doc.tobytes()
+                    doc.close()
+                    
+                    from io import BytesIO
+                    return send_file(
+                        BytesIO(pdf_bytes),
+                        mimetype='application/pdf',
+                        as_attachment=False,
+                        download_name=os.path.basename(filepath)
+                    )
+            except Exception as e:
+                print(f"Highlighting failed: {e}")
+                # Fallback to original file if highlighting fails
+                pass
+
         return send_from_directory(project_dir, filepath)
     except Exception as e:
         return jsonify({"error": str(e)}), 404
@@ -1241,6 +1300,41 @@ def confirm_step3(project_id):
             "status": "success",
             "message": "Step 3 confirmed",
             "metadata": metadata
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/projects/<project_id>/step3/save-draft', methods=['POST'])
+def save_step3_draft(project_id):
+    """Save Step 3 intermediate results (draft)"""
+    try:
+        data = request.json
+        judgments = data.get('judgments', {})
+        
+        step3_dir = os.path.join(PROJECTS_DIR, project_id, 'step3_data_extraction')
+        os.makedirs(step3_dir, exist_ok=True)
+        final_file = os.path.join(step3_dir, 'final_comparison_results.json')
+        
+        current_data = {}
+        if os.path.exists(final_file):
+            with open(final_file, 'r', encoding='utf-8') as f:
+                current_data = json.load(f)
+        
+        # If current_data is not a dict (e.g. list from auto results), reset it to dict for corrections
+        if not isinstance(current_data, dict):
+            current_data = {} 
+        
+        for doc_id, status in judgments.items():
+            if doc_id not in current_data:
+                current_data[doc_id] = {}
+            current_data[doc_id]['final_status'] = status
+            
+        with open(final_file, 'w', encoding='utf-8') as f:
+            json.dump(current_data, f, ensure_ascii=False, indent=2)
+            
+        return jsonify({
+            "status": "success",
+            "message": "Draft saved successfully"
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

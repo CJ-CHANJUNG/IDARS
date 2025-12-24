@@ -198,20 +198,26 @@ def extract_and_compare(project_id):
                             'value': fields.get('sailing_date', {}).get('value'),
                             'confidence': field_confidences.get('sailing_date', 0.0)
                         },
+                        'Date_coordinates': fields.get('sailing_date', {}).get('coordinates'),
                         'Amount': {
                             'value': fields.get('total_amount', {}).get('value'),
                             'currency': fields.get('total_amount', {}).get('currency'),
                             'confidence': field_confidences.get('total_amount', 0.0)
                         },
+                        'Amount_coordinates': fields.get('total_amount', {}).get('coordinates'),
                         'Quantity': {
                             'value': fields.get('total_quantity', {}).get('value'),
                             'unit': fields.get('total_quantity', {}).get('unit'),
                             'confidence': field_confidences.get('total_quantity', 0.0)
                         },
+                        'Quantity_coordinates': fields.get('total_quantity', {}).get('coordinates'),
                         'Incoterms': {
                             'value': fields.get('incoterms', {}).get('value'),
                             'confidence': field_confidences.get('incoterms', 0.0)
-                        }
+                        },
+                        'Incoterms_coordinates': fields.get('incoterms', {}).get('coordinates'),
+                        'evidence': doc.get('evidence'),
+                        'notes': doc.get('notes')
                     }
                     
                 elif doc_type == 'BL':
@@ -394,7 +400,14 @@ def extract_and_compare(project_id):
                         step3_data.get('incoterms', {}).get('confidence', 0.0) if isinstance(step3_data.get('incoterms'), dict) else 0.0
                     ) or (
                         step3_data.get('Incoterms', {}).get('confidence', 0.0) if isinstance(step3_data.get('Incoterms'), dict) else 0.0
-                    )
+                    ),
+                    # 좌표 정보 추가 (하이라이트용)
+                    'date_coordinates': step3_data.get('Date_coordinates'),
+                    'amount_coordinates': step3_data.get('Amount_coordinates'),
+                    'quantity_coordinates': step3_data.get('Quantity_coordinates'),
+                    'incoterms_coordinates': step3_data.get('Incoterms_coordinates'),
+                    'evidence': step3_data.get('evidence'),
+                    'notes': step3_data.get('notes')
                 },
                 'bl_data': bl_data if bl_data else None
             }
@@ -645,9 +658,38 @@ def get_extraction_data(project_id):
                     final_info = results_data[billing_doc]
                     # Update status and add corrections
                     if 'final_status' in final_info:
-                        item['auto_comparison']['status'] = final_info['final_status']
+                        # Do NOT overwrite auto_comparison status
+                        # item['auto_comparison']['status'] = final_info['final_status']
+                        item['final_status'] = final_info['final_status']
+                        print(f"[DEBUG] Merged final_status for {billing_doc}: {final_info['final_status']}")
                     
                     item['user_corrections'] = final_info.get('user_corrections', {})
+                else:
+                    # print(f"[DEBUG] No final info for {billing_doc}")
+                    pass
+                
+                # ★ FIX: 기존 데이터 호환성 (BL 없으면 no_evidence로 강제 표기)
+                # bl_data가 None이거나 비어있는 경우에만 적용
+                # BUT: Invoice 데이터가 있으면 no_evidence가 아님! (부분 오류 등)
+                bl_data = item.get('bl_data')
+                ocr_data = item.get('ocr_data')
+                
+                # Invoice 데이터가 유효한지 확인 (적어도 하나 이상의 필드가 값이 있어야 함)
+                has_invoice = False
+                if ocr_data:
+                    # Check if any key field has a value
+                    for key in ['date', 'amount', 'quantity', 'incoterms']:
+                        if ocr_data.get(key):
+                            has_invoice = True
+                            break
+                
+                # BL도 없고 Invoice도 없으면 -> No Evidence
+                if (not bl_data or (isinstance(bl_data, dict) and not bl_data)) and not has_invoice:
+                    # print(f"[DEBUG] No Evidence for {billing_doc}")
+                    if 'auto_comparison' in item:
+                        item['auto_comparison']['status'] = 'no_evidence'
+                        if 'final_status' not in item:
+                            item['final_status'] = 'no_evidence'
                 
                 response_data.append(item)
         else:

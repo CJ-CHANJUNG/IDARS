@@ -116,6 +116,7 @@ const ComparisonTableHeader = ({
                             <option value="complete_match">✅ 일치</option>
                             <option value="partial_error">⚠️ 부분오류</option>
                             <option value="review_required">❌ 검토필요</option>
+                            <option value="no_evidence">🚫 증빙없음</option>
                         </select>
                     </th>
                     <th rowSpan="2" style={headerStyle}>최종 판단</th>

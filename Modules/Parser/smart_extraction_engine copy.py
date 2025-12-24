@@ -61,6 +61,7 @@ class SmartExtractionEngine:
         self.gemini_model = None
         self.extraction_config = None
         self.data_normalizer = None
+        self.semaphore = asyncio.Semaphore(5)  # ✅ 병렬 처리 제한 (Semaphore) 추가
         self._load_configs()
     
     def _load_configs(self):
@@ -77,11 +78,21 @@ class SmartExtractionEngine:
             from Config.api_config import GEMINI_API_KEY
             genai.configure(api_key=GEMINI_API_KEY)
             
-            # 최신 안정 모델 (API 목록에서 확인됨)
-            GEMINI_MODEL_NAME = 'models/gemini-2.5-flash'
+            # 최신 안정 모델 (사용자 환경에서 2.0 이상 지원 확인됨)
+            GEMINI_MODEL_NAME = 'models/gemini-2.0-flash'
+            
+            # 시스템 지시사항 (사용자 제안 반영)
+            SYSTEM_INSTRUCTION = """
+            당신은 물류 문서(B/L, Invoice) 전문 데이터 추출 엔진입니다. 
+            JSON으로만 응답하며, 날짜 형식(YYYY-MM-DD), 통화 코드 준수 등 데이터 정규화 규칙을 엄격히 따릅니다.
+            수량과 금액은 반드시 숫자 형식으로 추출하고, 쉼표 등은 제거하세요.
+            """
             
             try:
-                self.gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+                self.gemini_model = genai.GenerativeModel(
+                    model_name=GEMINI_MODEL_NAME,
+                    system_instruction=SYSTEM_INSTRUCTION
+                )
                 # 간단한 테스트
                 test_response = self.gemini_model.generate_content("Hello")
                 if test_response and test_response.text:
@@ -90,18 +101,23 @@ class SmartExtractionEngine:
                     raise Exception("테스트 응답 없음")
             except Exception as e:
                 print(f"⚠️ {GEMINI_MODEL_NAME} 실패: {e}")
-                # 대체 모델 목록 (API 목록에서 확인된 모델들)
+                # 대체 모델 목록 (최신 버전 우선 순위)
                 fallback_models = [
-                    'models/gemini-2.0-flash',       # 검증된 안정 버전
-                    'models/gemini-2.5-flash-lite',  # 더 가볍고 빠름
-                    'models/gemini-2.5-pro'          # 고성능 (비용↑)
+                    'models/gemini-2.5-flash',       # 최신 2.5 버전
+                    'models/gemini-2.5-flash-lite',  # 2.5 경량 버전
+                    'models/gemini-3-flash',         # 차세대 3 버전
+                    'models/gemini-1.5-flash',       # 기존 안정 버전
+                    'models/gemini-1.5-pro'          # 고성능 (비용↑)
                 ]
                 model_loaded = False
                 
                 for fallback_model in fallback_models:
                     try:
                         print(f"   시도 중: {fallback_model}")
-                        self.gemini_model = genai.GenerativeModel(fallback_model)
+                        self.gemini_model = genai.GenerativeModel(
+                            model_name=fallback_model,
+                            system_instruction=SYSTEM_INSTRUCTION
+                        )
                         test_response = self.gemini_model.generate_content("Hello")
                         if test_response and test_response.text:
                             print(f"✅ Gemini API 초기화 완료 (대체 모델: {fallback_model})")
@@ -253,7 +269,7 @@ class SmartExtractionEngine:
             page = doc[page_num]
             
             # 고해상도 이미지 생성 (300 DPI 이상 권장, zoom=2.0)
-            pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+            pix = page.get_pixmap(matrix=fitz.Matrix(3.0, 3.0))
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             doc.close()
             
@@ -265,7 +281,7 @@ class SmartExtractionEngine:
             print(f"❌ 고품질 OCR 오류: {e}")
             return ""
 
-    async def extract_with_gemini_async(self, ocr_text: str, doc_type: str, extraction_fields: List[Dict]) -> Dict:
+    async def extract_with_gemini_async(self, ocr_text: str, doc_type: str, extraction_fields: List[Dict], expected_values: Dict = None) -> Dict:
         """
         Gemini API로 필드 추출 (비동기) with 구조화된 요청
         """
@@ -275,10 +291,20 @@ class SmartExtractionEngine:
         # 문서 타입별 지시사항
         doc_instruction = ""
         if doc_type == "BL":
-            doc_instruction = "이 문서는 선하증권(Bill of Lading)입니다. 선박 정보, 운송 정보, Incoterms, 그리고 **중량 정보(Net Weight, Gross Weight)**를 주의 깊게 찾아 추출하세요. Incoterms는 'Freight Prepaid', 'Freight Collect' 문구와 함께 확인하세요."
+            doc_instruction = "이 문서는 선하증권(Bill of Lading)입니다. 선박 정보, 운송 정보, Incoterms, 그리고 **중량 정보(Net Weight, Gross Weight)**를 주의 깊게 찾아 추출하세요."
         elif doc_type == "INVOICE":
             doc_instruction = "이 문서는 상업송장(Commercial Invoice)입니다. 금액과 거래 정보를 중심으로 추출하세요."
         
+        # 기대 값(Expected Values) 힌트 추가
+        hint_instruction = ""
+        if expected_values:
+            hint_instruction = "\n**[중요 힌트]** 다음은 이 문서에서 기대되는 값들입니다. 문서 내에서 이 값들과 일치하는 항목을 우선적으로 찾아보세요:\n"
+            if 'total_amount' in expected_values:
+                hint_instruction += f"- 기대 총 금액: {expected_values['total_amount']}\n"
+            if 'total_quantity' in expected_values:
+                hint_instruction += f"- 기대 총 수량: {expected_values['total_quantity']}\n"
+            hint_instruction += "만약 기대 값과 문서상의 값이 다르다면, 문서상의 값을 추출하고 그 이유를 'notes' 필드에 기록하세요.\n"
+
         # 필드별 프롬프트 및 예상 응답 구조 생성
         field_prompts = ""
         expected_fields_example = {}
@@ -289,23 +315,17 @@ class SmartExtractionEngine:
             
             # Incoterms 필드에 대한 추가 힌트
             if 'incoterms' in field['name'].lower():
-                field_prompt += " (예: FOB, CIF, EXW, DDP 등. 'Freight Prepaid'는 보통 CIF/CFR, 'Freight Collect'는 FOB/EXW와 관련됨)"
-            elif 'net_weight' in field['name'].lower():
-                field_prompt += " (순중량, N.W, Net Weight 숫자만 추출)"
-            elif 'gross_weight' in field['name'].lower():
-                field_prompt += " (총중량, G.W, Gross Weight 숫자만 추출)"
-            elif 'freight' in field['name'].lower() and 'terms' in field['name'].lower():
-                field_prompt += " ('Freight Prepaid' 또는 'Freight Collect' 문구 추출)"
+                field_prompt += " (예: FOB, CIF, EXW, DDP 등)"
             
             field_prompts += f"- {field['label']} ({field['name']}): {field_prompt}\n"
             
             # 예상 응답 형태 생성
             if 'currency' in output_format:
-                expected_fields_example[field['name']] = {"value": 50000, "currency": "USD"}
+                expected_fields_example[field['name']] = {"value": 0.0, "currency": "USD"}
             elif 'unit' in output_format:
-                expected_fields_example[field['name']] = {"value": 1000, "unit": "MT"}
+                expected_fields_example[field['name']] = {"value": 0.0, "unit": "MT"}
             elif output_format.get('format') == 'date':
-                expected_fields_example[field['name']] = {"value": "2025-06-30", "format": "date"}
+                expected_fields_example[field['name']] = {"value": "YYYY-MM-DD", "format": "date"}
             else:
                 expected_fields_example[field['name']] = {"value": "추출된 값", "format": "text"}
         
@@ -313,13 +333,14 @@ class SmartExtractionEngine:
 다음 {doc_type} 문서의 OCR 텍스트를 분석하세요:
 
 {doc_instruction}
+{hint_instruction}
 
 {ocr_text}
 
 **추출할 필드:**
 {field_prompts}
 
-**응답 형식 (JSON only, 정확히 아래 구조를 따르세요):**
+**응답 형식 (JSON only):**
 {{
   "document_type": "{doc_type}",
   "confidence": 0.95,
@@ -329,30 +350,18 @@ class SmartExtractionEngine:
   }},
   "notes": "추출 과정에서 특이사항이나 불확실한 부분"
 }}
-
-**중요 규칙:**
-1. 모든 숫자에서 쉼표 제거 (예: "1,000" → 1000)
-2. 날짜는 반드시 YYYY-MM-DD 형식으로 변환
-3. 통화는 ISO 4217 코드 (USD, JPY, KRW) 사용
-4. 단위는 표준 약어 (MT, KG, PCS) 사용
-5. 값을 찾지 못하면 null 반환
-6. 수량/금액은 반드시 {{"value": 숫자, "unit": "단위"}} 또는 {{"value": 숫자, "currency": "통화"}} 형식으로
-7. 응답은 JSON만 반환 (다른 텍스트 없이)
-8. 신뢰도(confidence)는 0.0 ~ 1.0 사이의 소수로 기재하세요. (0.0은 데이터가 아예 없을 때만 사용)
-   - 매우 확실함: 0.9 ~ 1.0
-   - 확실함: 0.7 ~ 0.9
-   - 불확실함: 0.5 ~ 0.7
-   - 추측: 0.1 ~ 0.5
 """
         
-        # 재시도 설정
-        max_retries = 5
-        base_delay = 10  # 초
+        max_retries = 3
+        retry_delay = 2
         
-        for attempt in range(max_retries):
+        for attempt in range(max_retries + 1):
             try:
-                # 비동기 호출
-                response = await self.gemini_model.generate_content_async(prompt)
+                # 비동기 호출 (JSON 모드 적용)
+                response = await self.gemini_model.generate_content_async(
+                    prompt,
+                    generation_config={"response_mime_type": "application/json"}
+                )
                 
                 # 토큰 사용량 계산
                 usage = response.usage_metadata
@@ -372,43 +381,105 @@ class SmartExtractionEngine:
                     "estimated_cost_krw": round(total_cost, 2)
                 }
                 
-                raw_text = response.text.strip()
-                
-                # Markdown JSON 블록 제거
-                raw_text = raw_text.replace('```json', '').replace('```', '').strip()
-                if raw_text.lower().startswith('json'):
-                    raw_text = raw_text[4:].strip()
-                
-                raw_result = json.loads(raw_text)
+                # JSON 모드이므로 바로 파싱 가능
+                raw_result = json.loads(response.text)
                 raw_result['token_usage'] = token_info
                 
                 # ✅ DataNormalizer 적용
                 if self.data_normalizer:
                     normalized_result = self.data_normalizer.normalize_extraction_result(raw_result)
                     normalized_result['token_usage'] = token_info
+                else:
+                    normalized_result = raw_result
+                
+                # ✅ 결과 검증 (Validation)
+                is_valid = True
+                validation_note = ""
+                
+                critical_fields = []
+                if doc_type == "INVOICE":
+                    critical_fields = ['total_amount']
+                elif doc_type == "BL":
+                    critical_fields = ['bl_number']
+                
+                fields = normalized_result.get('fields', {})
+                
+                for field_name in critical_fields:
+                    field_data = fields.get(field_name, {})
+                    if not field_data or field_data.get('value') in [None, "", 0]:
+                        is_valid = False
+                        validation_note = f"Critical field missing: {field_name}"
+                        break
+                
+                # ✅ N:1 매칭 검증 추가 (Amount/Quantity Mismatch)
+                if is_valid and doc_type == "INVOICE" and expected_values:
+                    def normalize_val(v):
+                        if v is None: return None
+                        if isinstance(v, (int, float)): return float(v)
+                        try:
+                            # 콤마 제거 후 float 변환
+                            return float(str(v).replace(',', '').strip())
+                        except:
+                            return None
+
+                    ext_amount = normalize_val(fields.get('total_amount', {}).get('value'))
+                    ext_qty = normalize_val(fields.get('total_quantity', {}).get('value'))
+                    
+                    exp_amount = normalize_val(expected_values.get('total_amount'))
+                    exp_qty = normalize_val(expected_values.get('total_quantity'))
+                    
+                    # 기대값이 있고 추출값이 다를 경우 (N:1 상황 의심)
+                    if (exp_amount is not None and ext_amount != exp_amount) or \
+                       (exp_qty is not None and ext_qty != exp_qty):
+                        is_valid = False
+                        validation_note = f"N:1 Mismatch (Ext: {ext_amount}/{ext_qty}, Exp: {exp_amount}/{exp_qty})"
+                        
+                        # 다음 재시도를 위한 프롬프트 보강 (라인 아이템 정밀 분석 지시)
+                        if attempt == 0:
+                            prompt += f"\n\n**[재분석 지시]** 현재 추출된 합계가 기대값(금액:{exp_amount}, 수량:{exp_qty})과 일치하지 않습니다. 인보이스 전체 합계(Total)가 아닌, 문서 내의 개별 라인 아이템들을 낱낱이 분석하여 이 기대값과 정확히 일치하는 항목을 찾아 그 값을 최종 결과로 반환하세요."
+                
+                if is_valid or len(ocr_text) < 50:
                     return normalized_result
                 else:
-                    return raw_result
+                    print(f"   ⚠️ 검증 실패 ({attempt+1}/{max_retries}): {validation_note}")
+                    if attempt < max_retries:
+                        await asyncio.sleep(retry_delay * (2 ** attempt))
+                        continue
+                    else:
+                        normalized_result['notes'] = f"{normalized_result.get('notes', '')} [Validation Failed: {validation_note}]"
+                        return normalized_result
                 
             except Exception as e:
                 error_msg = str(e)
-                if "429" in error_msg or "quota" in error_msg.lower() or "limit" in error_msg.lower():
-                    delay = base_delay * (2 ** attempt)
-                    print(f"⚠️ Gemini API 할당량 초과 ({attempt+1}/{max_retries}). {delay}초 후 재시도... 에러: {error_msg[:100]}")
-                    await asyncio.sleep(delay)
-                else:
-                    print(f"❌ Gemini API 비동기 호출 오류: {e}")
-                    break
-        
-        return {
-            "document_type": doc_type,
-            "confidence": 0.0,
-            "fields": {},
-            "field_confidence": {},
-            "notes": f"API 오류 (재시도 실패): {doc_type}"
-        }
+                print(f"❌ Gemini API 오류 ({attempt+1}/{max_retries}): {error_msg}")
+                
+                # 429 오류 처리 (할당량 초과)
+                if "429" in error_msg or "quota" in error_msg.lower():
+                    # 일일 할당량 소진 시 즉시 중단
+                    if "daily" in error_msg.lower():
+                        print("🚨 일일 할당량이 모두 소진되었습니다. 작업을 중단합니다.")
+                        raise Exception("Gemini API 일일 할당량 초과")
+                    
+                    # 재시도 대기 시간 파싱 (예: "Wait 49s")
+                    wait_match = re.search(r'wait\s*(\d+)s', error_msg.lower())
+                    wait_time = int(wait_match.group(1)) if wait_match else 60
+                    
+                    print(f"   ⏳ 할당량 초과. {wait_time}초 대기 후 재시도합니다...")
+                    await asyncio.sleep(wait_time)
+                    continue
 
-    async def process_single_pdf_async(self, pdf_path: str, slip_id: str, extraction_mode: str = 'basic') -> Dict:
+                if attempt < max_retries:
+                    await asyncio.sleep(retry_delay * (2 ** attempt))
+                else:
+                    return {
+                        "document_type": doc_type,
+                        "confidence": 0.0,
+                        "fields": {},
+                        "field_confidence": {},
+                        "notes": f"API 오류 (Max Retries): {e}"
+                    }
+
+    async def process_single_pdf_async(self, pdf_path: str, slip_id: str, extraction_mode: str = 'basic', expected_values: Dict = None) -> Dict:
         """
         단일 PDF 파일 비동기 처리
         
@@ -416,6 +487,7 @@ class SmartExtractionEngine:
             pdf_path: PDF 파일 경로
             slip_id: 전표 ID
             extraction_mode: 'basic' 또는 'detailed'
+            expected_values: 기대 금액/수량 힌트
         """
         filename = os.path.basename(pdf_path).upper()
         
@@ -487,7 +559,7 @@ class SmartExtractionEngine:
             
             # 3. Gemini API 비동기 호출
             print(f"   🤖 API 요청: {os.path.basename(pdf_path)}")
-            extraction_result = await self.extract_with_gemini_async(full_text, doc_type, extraction_fields)
+            extraction_result = await self.extract_with_gemini_async(full_text, doc_type, extraction_fields, expected_values)
             
             extraction_result['page'] = 1
             extraction_result['type'] = doc_type
@@ -511,7 +583,7 @@ class SmartExtractionEngine:
             }
 
 
-    async def process_project_pdfs_async(self, project_id: str, split_dir: str, extraction_mode: str = 'basic', target_ids: List[str] = None, progress_callback=None) -> List[Dict]:
+    async def process_project_pdfs_async(self, project_id: str, split_dir: str, extraction_mode: str = 'basic', target_ids: List[str] = None, progress_callback=None, expected_values_map: Dict = None) -> List[Dict]:
         """
         프로젝트 전체 PDF 비동기 병렬 처리
         OPTIMIZED: Only scans extraction_targets/ subfolder (BL & Invoice)
@@ -523,27 +595,11 @@ class SmartExtractionEngine:
             extraction_mode: 'basic' 또는 'detailed'
             target_ids: 처리할 전표 ID 리스트 (None이면 전체 처리)
             progress_callback: 진행률 콜백 함수 (current, total, doc_number, message)
+            expected_values_map: 전표별 기대 금액/수량 힌트 맵 {slip_id: {total_amount: X, total_quantity: Y}}
         """
         from datetime import datetime
         
         print(f"🚀 프로젝트 {project_id} 비동기 처리 시작 (모드: {extraction_mode}, 대상: {'전체' if not target_ids else len(target_ids)})")
-        
-        if not os.path.exists(split_dir):
-            print(f"❌ 폴더 없음: {split_dir}")
-            return []
-        
-        # 모든 PDF 파일 수집 (extraction_targets만 스캔하여 속도 향상)
-        tasks = []
-        semaphore = asyncio.Semaphore(1)  # 무료 티어 안정성을 위해 순차 처리 (1개씩)
-        
-        async def sem_task(pdf_path, slip_id):
-            async with semaphore:
-                result = await self.process_single_pdf_async(pdf_path, slip_id, extraction_mode)
-                # 무료 티어 RPM(20) 준수를 위해 요청 간 간격 유지 (약 4초)
-                await asyncio.sleep(4)
-                return result
-        
-        # ★ 진행률 초기화
         slip_folders = [f for f in os.listdir(split_dir) if os.path.isdir(os.path.join(split_dir, f))]
         total_slips = len([s for s in slip_folders if target_ids is None or s in target_ids])
         current_slip = 0
@@ -551,6 +607,14 @@ class SmartExtractionEngine:
         if progress_callback:
             progress_callback(0, total_slips, "", "추출 시작...")
 
+        # ✅ 세마포어를 이용한 비동기 작업 정의
+        async def sem_task(pdf_path, slip_id):
+            async with self.semaphore:
+                # 해당 전표의 기대 값 가져오기
+                expected_values = expected_values_map.get(slip_id) if expected_values_map else None
+                return await self.process_single_pdf_async(pdf_path, slip_id, extraction_mode, expected_values)
+
+        tasks = []
         for slip_folder in slip_folders:
             slip_path = os.path.join(split_dir, slip_folder)
             if not os.path.isdir(slip_path):
@@ -619,17 +683,4 @@ class SmartExtractionEngine:
             if 'documents' in res:
                 slip_results_map[slip_id]['documents'].extend(res['documents'])
         
-        final_results = list(slip_results_map.values())
-        print(f"✅ 총 {len(final_results)}개 전표 처리 완료")
-        return final_results
-
-    # 동기 메서드 유지 (하위 호환성)
-    def process_single_pdf(self, pdf_path: str, slip_id: str, extraction_mode: str = 'basic', ocr_json_dir: str = None) -> Dict:
-        return asyncio.run(self.process_single_pdf_async(pdf_path, slip_id, extraction_mode))
-
-
-
-if __name__ == "__main__":
-    # 테스트 코드
-    engine = SmartExtractionEngine()
-    print("SmartExtractionEngine 초기화 완료")
+        return list(slip_results_map.values())

@@ -32,6 +32,7 @@ const ComparisonTableEnhanced = ({
         handleCellDoubleClick,
         handleCellEditComplete,
         handleFinalJudgmentChange,
+        handleBulkJudgmentUpdate, // ★ Get bulk handler
         getCorrectedValue,
         getStatusIcon,
         getConfidenceBadge,
@@ -44,7 +45,16 @@ const ComparisonTableEnhanced = ({
     };
 
     const handleSelectAll = (e) => {
-        if (onSelectAll) onSelectAll(e);
+        if (onSelectAll) {
+            if (e.target.checked) {
+                // Pass only filtered IDs to the handler
+                const filteredIds = filteredData.map(row => row.billing_document);
+                onSelectAll(e, filteredIds);
+            } else {
+                // Uncheck all (or pass empty list if needed, but handler handles unchecked)
+                onSelectAll(e);
+            }
+        }
     };
 
     // ★ NEW: Filter-based selection
@@ -69,9 +79,9 @@ const ComparisonTableEnhanced = ({
         }
     };
 
-    const handleCellClick = (billingDoc, docType) => {
+    const handleCellClick = (billingDoc, docType, field, coordinates) => {
         if (onViewPDF) {
-            onViewPDF(billingDoc, docType);
+            onViewPDF(billingDoc, docType, field, coordinates);
         }
     };
 
@@ -110,6 +120,7 @@ const ComparisonTableEnhanced = ({
                 onFinalJudgment={handleFinalJudgment}
                 onSelectAll={handleSelectAll}
                 onSelectByStatus={handleSelectByStatus}
+                onBulkUpdate={handleBulkJudgmentUpdate} // ★ Pass handler
                 filteredData={filteredData}
             />
 

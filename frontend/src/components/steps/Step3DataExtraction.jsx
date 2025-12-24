@@ -10,7 +10,8 @@ const Step3DataExtraction = () => {
     const {
         confirmedData,
         evidenceData,
-        comparisonResults
+        comparisonResults,
+        finalJudgments // ★ Get finalJudgments from context
     } = useProject();
 
     const [step3SelectedRows, setStep3SelectedRows] = useState(new Set());
@@ -33,7 +34,8 @@ const Step3DataExtraction = () => {
         handleViewEvidence,
         handleUpdateField,
         handleFinalConfirm,
-        handleSendToDashboard
+        handleSendToDashboard,
+        handleSaveDraft // ★ Get handleSaveDraft
     } = useStep3Handlers(step3SelectedRows, setStep3SelectedRows);
 
     return (
@@ -41,6 +43,7 @@ const Step3DataExtraction = () => {
             <Step3Header
                 onExtractAndCompare={handleExtractAndCompare}
                 onSendToDashboard={handleSendToDashboard}
+                onSaveDraft={() => handleSaveDraft(finalJudgments)}
                 hasComparisonResults={comparisonResults && comparisonResults.length > 0}
             />
 
@@ -89,8 +92,8 @@ const Step3DataExtraction = () => {
                         <ComparisonTableEnhanced
                             data={comparisonResults}
                             viewMode={viewMode}
-                            onViewPDF={(billingDocument, docType) => {
-                                handleViewEvidence(billingDocument, docType || 'Commercial_Invoice');
+                            onViewPDF={(billingDocument, docType, field, coordinates) => {
+                                handleViewEvidence(billingDocument, docType || 'Commercial_Invoice', field, coordinates);
                             }}
                             onUpdateField={handleUpdateField}
                             onFinalConfirm={handleFinalConfirm}

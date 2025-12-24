@@ -59,7 +59,17 @@ const ComparisonTableRow = ({
                     cursor: isEditing ? 'text' : 'pointer',
                     background: isCorrected ? '#dbeafe' : (fieldResult?.match ? '#d1fae5' : '#fee2e2')
                 }}
-                onClick={() => onCellClick(billingDoc)}
+                onClick={() => {
+                    let coordinates = null;
+                    // For amount/quantity, check if there is N:1 evidence first
+                    if ((field === 'amount' || field === 'quantity') && ocr.evidence && ocr.evidence.coordinates) {
+                        coordinates = ocr.evidence.coordinates;
+                    } else {
+                        const coordKey = `${field}_coordinates`;
+                        coordinates = ocr[coordKey];
+                    }
+                    onCellClick(billingDoc, 'Commercial_Invoice', field, coordinates);
+                }}
                 onDoubleClick={() => onCellDoubleClick(idx, field, value, billingDoc)}
                 title={isCorrected ? "수정됨" : "클릭: PDF | 더블클릭: 수정"}
             >
@@ -111,13 +121,15 @@ const ComparisonTableRow = ({
                         borderRadius: '4px',
                         fontSize: '0.75rem',
                         cursor: 'pointer',
-                        background: finalJudgments[billingDoc] === 'match' ? '#d1fae5' :
-                            finalJudgments[billingDoc] === 'mismatch' ? '#fee2e2' : 'white'
+                        background: finalJudgments[billingDoc] === 'complete_match' ? '#d1fae5' :
+                            finalJudgments[billingDoc] === 'partial_error' ? '#fef3c7' :
+                                finalJudgments[billingDoc] === 'review_required' ? '#fee2e2' : 'white'
                     }}
                 >
                     <option value="">-</option>
-                    <option value="match">✅</option>
-                    <option value="mismatch">❌</option>
+                    <option value="complete_match">✅</option>
+                    <option value="partial_error">⚠️</option>
+                    <option value="review_required">❌</option>
                 </select>
             </td>
             <td style={{ ...cellStyle, fontWeight: '600', background: '#f8fafc' }}>{billingDoc}</td>
@@ -152,7 +164,7 @@ const ComparisonTableRow = ({
                 ...cellStyle,
                 cursor: 'pointer',
                 background: blResults.bl_net_weight?.match ? '#d1fae5' : (blResults.bl_net_weight?.match === false ? '#fee2e2' : cellStyle.background)
-            }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading')}>
+            }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading', 'net_weight', blData.net_weight_coordinates)}>
                 {renderValue(blData.net_weight || blData.quantity) || '-'}
             </td>
             <td style={{

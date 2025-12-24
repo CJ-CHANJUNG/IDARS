@@ -94,12 +94,12 @@ class DataNormalizer:
     def normalize_quantity(raw_value: Any) -> Dict[str, Any]:
         """
         수량 정규화
-        입력: {"value": 1000, "unit": "MT"} 또는 "1,000 MT"
-        출력: {"value": 1000.0, "unit": "MT", \"formatted": "1,000.00 MT"}
         """
+        coordinates = None
         if isinstance(raw_value, dict):
             value = raw_value.get('value') or raw_value.get('quantity')
             unit = raw_value.get('unit', '')
+            coordinates = raw_value.get('coordinates')
         else:
             # 문자열인 경우 파싱
             parsed = DataNormalizer.parse_quantity_with_unit(raw_value)
@@ -127,99 +127,21 @@ class DataNormalizer:
         return {
             "value": clean_value,
             "unit": clean_unit,
-            "formatted": formatted
+            "formatted": formatted,
+            "coordinates": coordinates
         }
-    
-    @staticmethod
-    def parse_amount_with_currency(ocr_text: str) -> Dict[str, Any]:
-        """
-        OCR 텍스트에서 금액과 통화 분리
-        
-        지원 패턴:
-        1. "USD 1,234.56" (통화 앞, 공백)
-        2. "1,234.56 USD" (통화 뒤, 공백)
-        3. "USD1,234.56" (통화 앞, 공백 없음)
-        4. "1,234.56USD" (통화 뒤, 공백 없음)
-        5. "$ 1,234.56" (기호, 공백)
-        6. "$1,234.56" (기호, 공백 없음)
-        7. "US$ 1,234.56" (달러 변형)
-        
-        Returns:
-            {"currency": "USD", "amount": 1234.56, "raw": "USD 1,234.56"}
-        """
-        if not ocr_text:
-            return {"currency": None, "amount": None, "raw": ocr_text}
-        
-        text = str(ocr_text).strip()
-        
-        # 다양한 패턴 시도 (우선순위 순)
-        patterns = [
-            # 패턴 1: 3자 통화 코드 + 숫자 (예: "USD 1,234.56" 또는 "USD1,234.56")
-            r'([A-Z]{3})\s*([\d,\.]+)',
-            # 패턴 2: 숫자 + 3자 통화 코드 (예: "1,234.56 USD" 또는 "1,234.56USD")
-            r'([\d,\.]+)\s*([A-Z]{3})',
-            # 패턴 3: 달러 변형 + 숫자 (예: "US$ 1,234.56" 또는 "US$1,234.56")
-            r'(US\$|US \$)\s*([\d,\.]+)',
-            # 패턴 4: 기호 + 숫자 (예: "$ 1,234.56" 또는 "$1,234.56")
-            r'([$¥₩€£])\s*([\d,\.]+)',
-            # 패턴 5: 숫자 + 기호 (예: "1,234.56$")
-            r'([\d,\.]+)\s*([$¥₩€£])',
-        ]
-        
-        currency = None
-        amount_str = None
-        
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                groups = match.groups()
-                # 첫 번째 그룹이 숫자인지 확인
-                if re.match(r'[\d,\.]+', groups[0]):
-                    amount_str = groups[0]
-                    currency = groups[1] if len(groups) > 1 else None
-                else:
-                    currency = groups[0]
-                    amount_str = groups[1] if len(groups) > 1 else None
-                break
-        
-        # 패턴 매칭 실패 시, 숫자만 있는 경우 처리 (Fallback)
-        if amount_str is None:
-            # 숫자, 콤마, 소수점만 포함된 패턴 찾기
-            number_pattern = r'([\d,\.]+)'
-            match = re.search(number_pattern, text)
-            if match:
-                amount_str = match.group(1)
-                # 통화는 없음
-                currency = None
-        
-        # 숫자 파싱
-        try:
-            clean_amount = float(amount_str.replace(',', '')) if amount_str else None
-        except:
-            clean_amount = None
-        
-        # 통화 표준화
-        if currency:
-            currency = currency.upper().strip()
-            currency = DataNormalizer.CURRENCY_MAP.get(currency, currency)
-        
-        return {
-            "currency": currency,
-            "amount": clean_amount,
-            "raw": text
-        }
-    
+
     @staticmethod
     def normalize_amount(raw_value: Any) -> Dict[str, Any]:
         """
         금액 정규화
-        입력: {"value": 50000, "currency": "USD"} 또는 "USD 50,000" 또는 OCR 텍스트
-        출력: {"value": 50000.0, "currency": "USD", "formatted": "50,000.00 USD"}
         """
+        coordinates = None
         if isinstance(raw_value, dict):
             # 이미 구조화된 데이터
             value = raw_value.get('value') or raw_value.get('amount')
             currency = raw_value.get('currency', '')
+            coordinates = raw_value.get('coordinates')
         else:
             # 문자열인 경우 파싱
             parsed = DataNormalizer.parse_amount_with_currency(raw_value)
@@ -232,7 +154,7 @@ class DataNormalizer:
         except:
             clean_value = None
         
-        # 통화 표준화 (이미 parse_amount_with_currency에서 했지만 재확인)
+        # 통화 표준화
         if currency:
             clean_currency = DataNormalizer.CURRENCY_MAP.get(str(currency).upper().strip(), currency)
         else:
@@ -247,24 +169,25 @@ class DataNormalizer:
         return {
             "value": clean_value,
             "currency": clean_currency,
-            "formatted": formatted
+            "formatted": formatted,
+            "coordinates": coordinates
         }
     
     @staticmethod
     def normalize_date(raw_value: Any) -> Dict[str, Any]:
         """
         날짜 정규화
-        입력: "2025-06-30" 또는 "JUN 30 2025" 또는 "30/06/2025"
-        출력: {"value": "2025-06-30", "formatted": "2025-06-30"}
         """
+        coordinates = None
         if isinstance(raw_value, dict):
             value = raw_value.get('value')
+            coordinates = raw_value.get('coordinates')
         else:
             value = str(raw_value)
         
         # 빈 값 처리
         if not value or value.strip() == '':
-            return {"value": None, "formatted": ""}
+            return {"value": None, "formatted": "", "coordinates": coordinates}
         
         try:
             # dateutil로 파싱 시도
@@ -277,23 +200,24 @@ class DataNormalizer:
         
         return {
             "value": normalized,
-            "formatted": normalized
+            "formatted": normalized,
+            "coordinates": coordinates
         }
     
     @staticmethod
     def normalize_incoterms(raw_value: Any) -> Dict[str, Any]:
         """
         인코텀즈 표준화
-        입력: "F.O.B" 또는 "fob" 또는 "C.I.F Hamburg"
-        출력: {"value": "FOB", "formatted": "FOB"}
         """
+        coordinates = None
         if isinstance(raw_value, dict):
             value = raw_value.get('value')
+            coordinates = raw_value.get('coordinates')
         else:
             value = str(raw_value)
         
         if not value or value.strip() == '':
-            return {"value": None, "formatted": ""}
+            return {"value": None, "formatted": "", "coordinates": coordinates}
         
         # 대문자로 변환 및 공백 제거
         clean_value = value.upper().strip().replace('.', '').replace(' ', '')
@@ -303,14 +227,15 @@ class DataNormalizer:
             for variant in variants:
                 variant_clean = variant.replace('.', '').replace(' ', '')
                 if clean_value.startswith(variant_clean):
-                    return {"value": standard, "formatted": standard}
+                    return {"value": standard, "formatted": standard, "coordinates": coordinates}
         
         # 매핑에 없으면 처음 3자만 대문자로
         normalized = clean_value[:3] if len(clean_value) >= 3 else clean_value
         
         return {
             "value": normalized,
-            "formatted": normalized
+            "formatted": normalized,
+            "coordinates": coordinates
         }
     
     @classmethod
@@ -348,6 +273,8 @@ class DataNormalizer:
             "confidence": raw_result.get('confidence', {}),
             "field_confidence": raw_result.get('field_confidence', {}),
             "document_type": raw_result.get('document_type'),
+            "evidence": raw_result.get('evidence'),
+            "notes": raw_result.get('notes'),
             "raw_fields": fields  # 원본 데이터 보존 (디버깅용)
         }
 

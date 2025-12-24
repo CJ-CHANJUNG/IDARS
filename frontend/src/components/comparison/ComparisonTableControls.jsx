@@ -7,8 +7,11 @@ const ComparisonTableControls = ({
     onFinalJudgment,
     onSelectAll,
     onSelectByStatus,
+    onBulkUpdate,
     filteredData
 }) => {
+    console.log('[DEBUG] ComparisonTableControls selectedRows:', selectedRows, 'Size:', selectedRows?.size);
+
     return (
         <div style={{
             display: 'flex',
@@ -142,6 +145,101 @@ const ComparisonTableControls = ({
                     >
                         ❌ 오류만
                     </button>
+                    <button
+                        onClick={() => onSelectByStatus && onSelectByStatus('no_evidence')}
+                        style={{
+                            padding: '0.4rem 0.8rem',
+                            background: '#f3f4f6',
+                            color: '#374151',
+                            border: '1px solid #9ca3af',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseOver={(e) => e.target.style.background = '#e5e7eb'}
+                        onMouseOut={(e) => e.target.style.background = '#f3f4f6'}
+                    >
+                        🚫 증빙없음
+                    </button>
+                </div>
+
+                {/* Bulk Action Buttons */}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', borderLeft: '1px solid #e2e8f0', paddingLeft: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600', marginRight: '0.25rem' }}>선택 항목 적용:</span>
+                    <button
+                        onClick={() => onBulkUpdate && onBulkUpdate('complete_match')}
+                        disabled={!selectedRows || selectedRows.size === 0}
+                        style={{
+                            padding: '0.4rem 0.8rem',
+                            background: '#d1fae5',
+                            color: '#065f46',
+                            border: '1px solid #10b981',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: '500',
+                            cursor: (!selectedRows || selectedRows.size === 0) ? 'not-allowed' : 'pointer',
+                            opacity: (!selectedRows || selectedRows.size === 0) ? 0.6 : 1,
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        ✅ 일치
+                    </button>
+                    <button
+                        onClick={() => onBulkUpdate && onBulkUpdate('partial_error')}
+                        disabled={!selectedRows || selectedRows.size === 0}
+                        style={{
+                            padding: '0.4rem 0.8rem',
+                            background: '#fef3c7',
+                            color: '#92400e',
+                            border: '1px solid #f59e0b',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: '500',
+                            cursor: (!selectedRows || selectedRows.size === 0) ? 'not-allowed' : 'pointer',
+                            opacity: (!selectedRows || selectedRows.size === 0) ? 0.6 : 1,
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        ⚠️ 불일치
+                    </button>
+                    <button
+                        onClick={() => onBulkUpdate && onBulkUpdate('review_required')}
+                        disabled={!selectedRows || selectedRows.size === 0}
+                        style={{
+                            padding: '0.4rem 0.8rem',
+                            background: '#fee2e2',
+                            color: '#991b1b',
+                            border: '1px solid #ef4444',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: '500',
+                            cursor: (!selectedRows || selectedRows.size === 0) ? 'not-allowed' : 'pointer',
+                            opacity: (!selectedRows || selectedRows.size === 0) ? 0.6 : 1,
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        ❌ 오류
+                    </button>
+                    <button
+                        onClick={() => onBulkUpdate && onBulkUpdate('no_evidence')}
+                        disabled={!selectedRows || selectedRows.size === 0}
+                        style={{
+                            padding: '0.4rem 0.8rem',
+                            background: '#f3f4f6',
+                            color: '#374151',
+                            border: '1px solid #9ca3af',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: '500',
+                            cursor: (!selectedRows || selectedRows.size === 0) ? 'not-allowed' : 'pointer',
+                            opacity: (!selectedRows || selectedRows.size === 0) ? 0.6 : 1,
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        🚫 증빙없음
+                    </button>
                 </div>
 
                 {/* Final Judgment Button */}
@@ -162,7 +260,7 @@ const ComparisonTableControls = ({
                     onMouseOver={(e) => selectedRows.size > 0 && (e.target.style.background = '#059669')}
                     onMouseOut={(e) => selectedRows.size > 0 && (e.target.style.background = '#10b981')}
                 >
-                    ✔️ 선택 항목 최종 판단 ({selectedRows.size})
+                    ✔️ 선택 항목 최종 판단({selectedRows.size})
                 </button>
             </div>
         </div>

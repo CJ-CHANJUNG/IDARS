@@ -4,6 +4,7 @@ import { useProject } from '../../context/ProjectContext';
 const Step3Header = ({
     onExtractAndCompare,
     onSendToDashboard,
+    onSaveDraft,
     hasComparisonResults
 }) => {
     const {
@@ -60,6 +61,18 @@ const Step3Header = ({
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                        className="action-button secondary"
+                        onClick={onSaveDraft}
+                        style={{
+                            backgroundColor: '#64748b',
+                            color: '#ffffff',
+                            padding: '0.4rem 0.8rem',
+                            fontSize: '0.85rem'
+                        }}
+                    >
+                        💾 임시 저장
+                    </button>
                     <button
                         className="action-button primary"
                         onClick={onExtractAndCompare}

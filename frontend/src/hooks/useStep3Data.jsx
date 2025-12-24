@@ -62,7 +62,9 @@ export const useStep3Data = () => {
                                     ocr_data: loadedItem.ocr_data,
                                     bl_data: loadedItem.bl_data,
                                     auto_comparison: loadedItem.auto_comparison,
-                                    api_usage: loadedItem.api_usage
+                                    api_usage: loadedItem.api_usage,
+                                    final_status: loadedItem.final_status, // ★ Include final_status
+                                    user_corrections: loadedItem.user_corrections // ★ Include user_corrections
                                 };
                             }
                         });
