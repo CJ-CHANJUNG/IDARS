@@ -18,7 +18,7 @@ export const useStep3Data = () => {
         if (!project) return;
 
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/step3/extraction-data`);
+            const response = await fetch(`/api/projects/${project.id}/step3/extraction-data`);
             if (response.ok) {
                 const result = await response.json();
                 setExtractionData(result.data);

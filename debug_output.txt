@@ -1,54 +1,343 @@
-🔧 디버깅 모드 자동 실행
-================================================================================
-프로젝트 전체 PDF 처리
-================================================================================
-프로젝트 ID: TEST02_20251124_083146
-→ OCR JSON 없음, PDF에서 OCR 수행
-처리 범위: 첫 3개 전표만 (빠른 테스트)
-✅ Gemini API 초기화 완료 (모델: models/gemini-2.5-flash)
-✅ Extraction Config 로드 완료
-
-처리 시작...
-
-
-============================================================
-전표: 94458894
-============================================================
-📄 처리 중: 94458894 - D:\CJ\Project Manager\IDARS\IDARS PJT\Data\projects\TEST02_20251124_083146\step2_evidence_collection\split_documents\94458894\94458894_Bill_of_Lading_DOC_TC_830938_3p.pdf
-   📄 PDF에서 OCR 수행
-   📄 Page 1: 스캔 문서 감지 → 경량 OCR
-   ✅ Page 1: BL 검출
-   🤖 Page 1: Gemini API 호출
-
-============================================================
-전표: 94458929
-============================================================
-📄 처리 중: 94458929 - D:\CJ\Project Manager\IDARS\IDARS PJT\Data\projects\TEST02_20251124_083146\step2_evidence_collection\split_documents\94458929\94458929_Bill_of_Lading_250701_-_STELLANTISNOLA_2p.pdf
-   📄 PDF에서 OCR 수행
-   ✅ Page 1: BL 검출
-   🤖 Page 1: Gemini API 호출
-
-============================================================
-전표: 94458932
-============================================================
-📄 처리 중: 94458932 - D:\CJ\Project Manager\IDARS\IDARS PJT\Data\projects\TEST02_20251124_083146\step2_evidence_collection\split_documents\94458932\94458932_Bill_of_Lading_BL_1p.pdf
-   📄 PDF에서 OCR 수행
-   📄 Page 1: 스캔 문서 감지 → 경량 OCR
-   ✅ Page 1: BL 검출
-   🤖 Page 1: Gemini API 호출
-
-✅ 결과 저장: D:\CJ\Project Manager\IDARS\IDARS PJT\Data\projects\TEST02_20251124_083146\step3_data_extraction\extracted_data.json
-   처리된 전표: 3개
-
-================================================================================
-처리 요약
-================================================================================
-
-94458894: 1개 문서, 소스=pdf_ocr
-  - BL (신뢰도: 0.95)
-
-94458929: 1개 문서, 소스=pdf_ocr
-  - BL (신뢰도: 0.98)
-
-94458932: 1개 문서, 소스=pdf_ocr
-  - BL (신뢰도: 0.95)
+Time: 2025-12-24 10:20:46.339050
+[
+  {
+    "billing_document": "94537551",
+    "auto_comparison": {
+      "status": "partial_error",
+      "field_results": {
+        "date": {
+          "match": true,
+          "step1_value": "2025-12-08",
+          "step3_value": {
+            "value": "2025-12-08",
+            "confidence": 0.95
+          },
+          "confidence": 0.95
+        },
+        "amount": {
+          "match": true,
+          "step1_value": "836,552,072",
+          "step3_value": {
+            "value": 836552072.0,
+            "currency": "IDR",
+            "confidence": 0.95
+          },
+          "confidence": 0.95
+        },
+        "quantity": {
+          "match": false,
+          "step1_value": "63.750",
+          "step3_value": {
+            "value": 140.63,
+            "unit": "MT",
+            "confidence": 0.95
+          },
+          "confidence": 0.95
+        },
+        "incoterms": {
+          "match": false,
+          "step1_value": "CFR",
+          "step3_value": {
+            "value": null,
+            "confidence": 0.95
+          },
+          "confidence": 0.95
+        }
+      },
+      "bl_results": {
+        "bl_net_weight": {
+          "match": false,
+          "bl_value": {
+            "value": 10.63,
+            "unit": "MT"
+          },
+          "step1_value": "63.750"
+        },
+        "bl_on_board_date": {
+          "match": true,
+          "bl_value": "2025-12-08",
+          "step1_value": "2025-12-08"
+        },
+        "bl_freight_terms": {
+          "match": true,
+          "bl_value": "FREIGHT PREPAID",
+          "step1_value": "CFR"
+        }
+      },
+      "mismatch_count": 1,
+      "verifier_report": {
+        "status": "FAIL",
+        "details": [
+          "✅ 금액 일치 (836,552,072.00)",
+          "✅ 3자 날짜 일치 (2025-12-08)",
+          "❌ 수량 불일치: ERP(63.75) vs Invoice(140.63)",
+          "⚠️ BL Net Weight 상이: ERP(63.75) vs BL(10.63), 차이=53.12",
+          "❌ 인코텀즈 불일치: ERP(CFR) vs Invoice(NON)"
+        ],
+        "scores": {}
+      }
+    },
+    "api_usage": {
+      "input": 5103,
+      "output": 2067
+    },
+    "step1_data": {
+      "date": "2025-12-08",
+      "amount": "836,552,072",
+      "currency": "IDR",
+      "quantity": "63.750",
+      "unit": "",
+      "incoterms": "CFR"
+    },
+    "ocr_data": {
+      "date": "2025-12-08",
+      "amount": 836552072.0,
+      "quantity": 140.63,
+      "incoterms": null,
+      "date_confidence": 0.95,
+      "amount_confidence": 0.95,
+      "quantity_confidence": 0.95,
+      "incoterms_confidence": 0.95,
+      "date_coordinates": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "amount_coordinates": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "quantity_coordinates": [
+        133,
+        414,
+        147,
+        475
+      ],
+      "incoterms_coordinates": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "evidence": [
+        {
+          "field": "total_amount",
+          "values": [
+            348944315.0,
+            331608950.0,
+            155998807.0
+          ],
+          "coordinates": [
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "reason": "Sum of Line Item 3 (348944315.00) and Line Item 2 (331608950.00) and Line Item 7 (155998807.00) matches expected 836552072.0"
+        }
+      ],
+      "notes": "Found via N:1 combination"
+    },
+    "bl_data": {
+      "bl_number": "POBUKANJKT252238",
+      "vessel_name": "SEA’ TOPAZ",
+      "port_of_loading": "KWANGYANG, KOREA",
+      "port_of_discharge": "JAKARTA, INDONESIA",
+      "on_board_date": "2025-12-08",
+      "net_weight": {
+        "value": 10.63,
+        "unit": "MT"
+      },
+      "gross_weight": {
+        "value": 90.0,
+        "unit": "MT"
+      },
+      "quantity": {
+        "value": 10.63,
+        "unit": "MT"
+      },
+      "shipper": "POSCO INTERNATIONAL CORPORATION",
+      "consignee": "PT POSCO INDONESIA",
+      "freight_payment_terms": "FREIGHT PREPAID",
+      "on_board_date_confidence": 0.95,
+      "net_weight_confidence": 0.95,
+      "gross_weight_confidence": 0.95,
+      "quantity_confidence": 0.95,
+      "freight_payment_terms_confidence": 0.95
+    }
+  },
+  {
+    "billing_document": "94538975",
+    "auto_comparison": {
+      "status": "partial_error",
+      "field_results": {
+        "date": {
+          "match": true,
+          "step1_value": "2025-12-11",
+          "step3_value": {
+            "value": "2025-12-11",
+            "confidence": 0.95
+          },
+          "confidence": 0.95
+        },
+        "amount": {
+          "match": true,
+          "step1_value": "3,205,775",
+          "step3_value": {
+            "value": 3205775.0,
+            "currency": "JPY",
+            "confidence": 0.95
+          },
+          "confidence": 0.95
+        },
+        "quantity": {
+          "match": false,
+          "step1_value": "26.510",
+          "step3_value": {
+            "value": 1107.39,
+            "unit": "MT",
+            "confidence": 0.95
+          },
+          "confidence": 0.95
+        },
+        "incoterms": {
+          "match": false,
+          "step1_value": "CIF",
+          "step3_value": {
+            "value": null,
+            "confidence": 0.95
+          },
+          "confidence": 0.95
+        }
+      },
+      "bl_results": {
+        "bl_net_weight": {
+          "match": false,
+          "bl_value": {
+            "value": 1107.39,
+            "unit": "MT"
+          },
+          "step1_value": "26.510"
+        },
+        "bl_on_board_date": {
+          "match": true,
+          "bl_value": "2025-12-11",
+          "step1_value": "2025-12-11"
+        },
+        "bl_freight_terms": {
+          "match": true,
+          "bl_value": "+ FREIGHT PREPAID",
+          "step1_value": "CIF"
+        }
+      },
+      "mismatch_count": 1,
+      "verifier_report": {
+        "status": "FAIL",
+        "details": [
+          "✅ 금액 일치 (3,205,775.00)",
+          "✅ 3자 날짜 일치 (2025-12-11)",
+          "❌ 수량 불일치: ERP(26.51) vs Invoice(1107.39)",
+          "⚠️ BL Net Weight 상이: ERP(26.51) vs BL(1107.39), 차이=1080.88",
+          "❌ 인코텀즈 불일치: ERP(CIF) vs Invoice(NON)"
+        ],
+        "scores": {}
+      }
+    },
+    "api_usage": {
+      "input": 6201,
+      "output": 1782
+    },
+    "step1_data": {
+      "date": "2025-12-11",
+      "amount": "3,205,775",
+      "currency": "JPY",
+      "quantity": "26.510",
+      "unit": "",
+      "incoterms": "CIF"
+    },
+    "ocr_data": {
+      "date": "2025-12-11",
+      "amount": 3205775.0,
+      "quantity": 1107.39,
+      "incoterms": null,
+      "date_confidence": 0.95,
+      "amount_confidence": 0.95,
+      "quantity_confidence": 0.95,
+      "incoterms_confidence": 0.95,
+      "date_coordinates": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "amount_coordinates": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "quantity_coordinates": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "incoterms_coordinates": [],
+      "evidence": [
+        {
+          "field": "total_amount",
+          "values": [
+            3205775.0
+          ],
+          "coordinates": [],
+          "reason": "Line item amount (3,205,775.00) matches expected total 3,205,775.00"
+        }
+      ],
+      "notes": "Found via N:1 combination"
+    },
+    "bl_data": {
+      "bl_number": "WYGSKYV2501903",
+      "vessel_name": "WOOYANG VICTORY",
+      "port_of_loading": "KOREA",
+      "port_of_discharge": "JAPAN",
+      "on_board_date": "2025-12-11",
+      "net_weight": {
+        "value": 1107.39,
+        "unit": "MT"
+      },
+      "gross_weight": {
+        "value": 1114.286,
+        "unit": "MT"
+      },
+      "quantity": {
+        "value": 1107.39,
+        "unit": "MT"
+      },
+      "shipper": "POSCO INTERNATIONAL CORPORATION",
+      "consignee": "TO ORDER OF SHIPPER",
+      "freight_payment_terms": "+ FREIGHT PREPAID",
+      "on_board_date_confidence": 0.95,
+      "net_weight_confidence": 0.95,
+      "gross_weight_confidence": 0.95,
+      "quantity_confidence": 0.95,
+      "freight_payment_terms_confidence": 0.95
+    }
+  }
+]

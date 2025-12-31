@@ -4,6 +4,7 @@ import DataImportModal from '../DataImportModal';
 import PDFViewerModal from '../PDFViewerModal';
 import EvidenceUploadModal from '../EvidenceUploadModal';
 import ProgressBar from '../ProgressBar';
+import '../DesignPreview.css';
 
 const Step2EvidenceCollection = () => {
     const {
@@ -62,7 +63,7 @@ const Step2EvidenceCollection = () => {
     const checkEvidenceStatus = async () => {
         if (!project) return;
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/evidence/status`);
+            const response = await fetch(`/api/projects/${project.id}/evidence/status`);
             const statusMap = await response.json();
 
             if (response.ok) {
@@ -132,7 +133,7 @@ const Step2EvidenceCollection = () => {
         setIsLoading(true);
         try {
             const requestBody = { targetDocuments, forceRedownload };
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/dms-download`, {
+            const response = await fetch(`/api/projects/${project.id}/dms-download`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody)
@@ -161,7 +162,7 @@ const Step2EvidenceCollection = () => {
 
         const pollInterval = setInterval(async () => {
             try {
-                const response = await fetch(`http://127.0.0.1:5000/api/dms/progress/${project.id}`);
+                const response = await fetch(`/api/dms/progress/${project.id}`);
                 if (response.ok) {
                     const progress = await response.json();
                     setDownloadProgress({
@@ -201,7 +202,7 @@ const Step2EvidenceCollection = () => {
 
         setIsLoading(true);
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/split-evidence`, {
+            const response = await fetch(`/api/projects/${project.id}/split-evidence`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetDocuments })
@@ -230,7 +231,7 @@ const Step2EvidenceCollection = () => {
 
         const pollInterval = setInterval(async () => {
             try {
-                const response = await fetch(`http://127.0.0.1:5000/api/split/progress/${project.id}`);
+                const response = await fetch(`/api/split/progress/${project.id}`);
                 if (response.ok) {
                     const progress = await response.json();
                     setDownloadProgress({
@@ -267,7 +268,7 @@ const Step2EvidenceCollection = () => {
 
         setIsLoading(true);
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/confirm-step2`, {
+            const response = await fetch(`/api/projects/${project.id}/confirm-step2`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ evidenceData: evidenceData })
@@ -294,7 +295,7 @@ const Step2EvidenceCollection = () => {
 
         setIsLoading(true);
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/unconfirm`, {
+            const response = await fetch(`/api/projects/${project.id}/unconfirm`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ step: 2 })
@@ -316,7 +317,7 @@ const Step2EvidenceCollection = () => {
 
     const handleViewEvidence = async (row, filterType = null) => {
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/evidence/search?billingDocument=${row.billingDocument}`);
+            const response = await fetch(`/api/projects/${project.id}/evidence/search?billingDocument=${row.billingDocument}`);
             let files = await response.json();
 
             if (files && files.length > 0) {
@@ -353,17 +354,20 @@ const Step2EvidenceCollection = () => {
 
                 const filesWithUrl = files.map(f => ({
                     ...f,
-                    url: `http://127.0.0.1:5000/api/projects/${project.id}/files/${f.path}`
+                    url: `/api/projects/${project.id}/files/${f.path}`
                 }));
 
-                setPdfViewerState({
-                    isOpen: true,
+                // 새 창으로 PDF 뷰어 열기
+                const viewerData = {
                     files: filesWithUrl,
                     title: filterType
                         ? `${filterType} 문서: ${row.billingDocument}`
                         : `증빙 문서 (원본): ${row.billingDocument}`,
-                    billingDocument: row.billingDocument
-                });
+                    timestamp: Date.now()
+                };
+
+                localStorage.setItem('pdfViewerPopoutState', JSON.stringify(viewerData));
+                window.open('/?mode=viewer', '_blank', 'width=1400,height=900');
             } else {
                 alert(filterType
                     ? `해당 전표의 ${filterType} 파일을 찾을 수 없습니다.`
@@ -388,7 +392,7 @@ const Step2EvidenceCollection = () => {
         formData.append('billingDocument', billingDocument);
 
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/evidence/upload`, {
+            const response = await fetch(`/api/projects/${project.id}/evidence/upload`, {
                 method: 'POST',
                 body: formData
             });
@@ -413,7 +417,7 @@ const Step2EvidenceCollection = () => {
 
     const handleDeleteEvidence = async (file) => {
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/evidence/delete`, {
+            const response = await fetch(`/api/projects/${project.id}/evidence/delete`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ filepath: file.path })
@@ -436,390 +440,215 @@ const Step2EvidenceCollection = () => {
     };
 
     return (
-        <>
-            <div className="step-header" style={{
-                padding: '1.5rem 2rem',
-                borderBottom: '1px solid #e0e0e0',
-                background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.05) 0%, rgba(6, 182, 212, 0.03) 100%)'
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <h3 style={{ margin: '0 0 0.5rem 0', color: '#0ea5e9', fontSize: '1.3rem' }}>
-                            Step 2: 증빙 수집 (Evidence Collection)
-                        </h3>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>
-                            전표별 증빙 문서 다운로드 및 분류 상태를 관리합니다
-                        </p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="dp-card">
+            {showDownloadProgress && (
+                <ProgressBar
+                    progress={downloadProgress}
+                />
+            )}
+            <div className="dp-dashboard-header" style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.5rem' }}>Step 2: Evidence Collection</h1>
+                    <p style={{ color: '#64748b' }}>Manage evidence documents and split status.</p>
+                </div>
+                <div className="dp-panel-controls" style={{ border: 'none', padding: 0, background: 'transparent' }}>
+                    <div className="dp-panel-group">
                         <button
-                            className="action-button primary"
+                            className="dp-btn dp-btn-primary"
                             onClick={() => {
                                 setImportModalTab('dms');
                                 setIsImportModalOpen(true);
                             }}
-                            style={{
-                                background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
-                                color: 'white',
-                                padding: '0.75rem 1.5rem',
-                                borderRadius: '8px',
-                                border: 'none',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                boxShadow: '0 2px 8px rgba(14, 165, 233, 0.3)'
-                            }}
                         >
-                            📥 증빙 다운로드
+                            📥 Download Evidence
                         </button>
                         <button
-                            className="action-button"
+                            className="dp-btn dp-btn-secondary"
                             onClick={handleSplitEvidence}
                             disabled={isLoading}
-                            style={{
-                                background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
-                                color: 'white',
-                                padding: '0.75rem 1.5rem',
-                                borderRadius: '8px',
-                                border: 'none',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                boxShadow: '0 2px 8px rgba(139, 92, 246, 0.3)'
-                            }}
                         >
                             ✂️ Split PDF
                         </button>
                         <button
-                            className="action-button success"
+                            className={`dp-btn ${project?.steps?.step2?.status === 'completed' ? 'dp-btn-danger' : 'dp-btn-success'}`}
                             onClick={project?.steps?.step2?.status === 'completed' ? handleUnconfirm : handleConfirmStep2}
                             disabled={isLoading || (project?.steps?.step3?.status === 'completed')}
-                            style={{
-                                background: project?.steps?.step2?.status === 'completed'
-                                    ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-                                    : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                color: 'white',
-                                padding: '0.75rem 1.5rem',
-                                borderRadius: '8px',
-                                border: 'none',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                boxShadow: project?.steps?.step2?.status === 'completed'
-                                    ? '0 2px 8px rgba(239, 68, 68, 0.3)'
-                                    : '0 2px 8px rgba(16, 185, 129, 0.3)',
-                                opacity: (project?.steps?.step3?.status === 'completed') ? 0.5 : 1
-                            }}
+                            style={{ opacity: (project?.steps?.step3?.status === 'completed') ? 0.5 : 1 }}
                         >
-                            {project?.steps?.step2?.status === 'completed' ? '↩️ 확정 취소' : '✅ 증빙 확정'}
+                            {project?.steps?.step2?.status === 'completed' ? '↩️ Unconfirm' : '✅ Confirm Evidence'}
                         </button>
                     </div>
                 </div>
             </div>
 
+            {/* Summary Stats */}
+            <div className="dp-summary-bar" style={{ margin: '1.5rem', width: 'auto' }}>
+                <div className="dp-summary-item">
+                    <span className="dp-summary-label">Total:</span>
+                    <span className="dp-summary-value">{evidenceData.length}</span>
+                </div>
+                <div className="dp-summary-divider"></div>
+                <div className="dp-summary-item pending">
+                    <span className="dp-summary-label">Collecting:</span>
+                    <span className="dp-summary-value" style={{ color: '#d97706' }}>
+                        {evidenceData.filter(r => r.evidenceStatus === '수집중').length}
+                    </span>
+                </div>
+                <div className="dp-summary-divider"></div>
+                <div className="dp-summary-item match">
+                    <span className="dp-summary-label">Completed:</span>
+                    <span className="dp-summary-value">
+                        {evidenceData.filter(r => r.evidenceStatus === '완료').length}
+                    </span>
+                </div>
+            </div>
+
             {evidenceData.length > 0 ? (
-                <div className="evidence-table-container" style={{ padding: '1.5rem' }}>
-                    <div style={{
-                        overflowX: 'auto',
-                        border: '1px solid #e0e0e0',
-                        borderRadius: '8px',
-                        backgroundColor: 'white'
-                    }}>
-                        <table style={{
-                            width: '100%',
-                            borderCollapse: 'collapse',
-                            fontSize: '0.9rem'
-                        }}>
-                            <thead>
-                                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e0e0e0' }}>
-                                    <th style={{ padding: '1rem', textAlign: 'center', width: '40px' }}>
+                <div className="dp-table-wrapper">
+                    <table className="dp-table dp-table-bordered">
+                        <thead>
+                            <tr>
+                                <th style={{ width: '30px', position: 'sticky', left: 0, zIndex: 30, background: '#f8fafc' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={evidenceData.length > 0 && selectedRows.size === evidenceData.length}
+                                        onChange={handleSelectAll}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                </th>
+                                <th style={{ minWidth: '140px', textAlign: 'left', position: 'sticky', left: '30px', zIndex: 30, background: '#f8fafc', borderRight: '1px solid #e2e8f0', fontSize: '0.8rem' }}>Billing Document</th>
+                                <th style={{ width: '60px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem' }}>Evidence</th>
+                                <th style={{ width: '90px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem' }}>Status</th>
+                                <th style={{ width: '60px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem', lineHeight: '1.2' }}>Bill of<br />Lading</th>
+                                <th style={{ width: '60px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem', lineHeight: '1.2' }}>Commercial<br />Invoice</th>
+                                <th style={{ width: '60px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem', lineHeight: '1.2' }}>Packing<br />List</th>
+                                <th style={{ width: '60px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem', lineHeight: '1.2' }}>Weight<br />List</th>
+                                <th style={{ width: '60px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem', lineHeight: '1.2' }}>Mill<br />Certificate</th>
+                                <th style={{ width: '60px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem', lineHeight: '1.2' }}>Cargo<br />Insurance</th>
+                                <th style={{ width: '60px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem', lineHeight: '1.2' }}>Certificate<br />of Origin</th>
+                                <th style={{ width: '60px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem', lineHeight: '1.2' }}>Customs<br />Clearance</th>
+                                <th style={{ width: '50px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem' }}>Other</th>
+                                <th style={{ width: '100px', textAlign: 'center', fontSize: '0.75rem', padding: '0.5rem 0.25rem', lineHeight: '1.2' }}>Split<br />Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {evidenceData.map((row, index) => (
+                                <tr key={row.id}>
+                                    <td style={{ textAlign: 'center', position: 'sticky', left: 0, background: 'white', zIndex: 20 }}>
                                         <input
                                             type="checkbox"
-                                            checked={evidenceData.length > 0 && selectedRows.size === evidenceData.length}
-                                            onChange={handleSelectAll}
+                                            checked={selectedRows.has(row.billingDocument)}
+                                            onChange={() => handleSelectRow(row.billingDocument)}
                                             style={{ cursor: 'pointer' }}
                                         />
-                                    </th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>전표번호</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#475569' }}>증빙</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#475569' }}>증빙상태</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>BL</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>인보이스</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>패킹리스트</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>중량명세서</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>밀시트</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>화물보험증권</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>원산지증명서</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>통관서류</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>납품서</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>기타</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#475569' }}>Split 상태</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#475569' }}>비고</th>
+                                    </td>
+                                    <td style={{ fontWeight: '500', position: 'sticky', left: '30px', background: 'white', zIndex: 20, borderRight: '1px solid #f1f5f9' }}>
+                                        {row.billingDocument}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                            <span
+                                                className="dp-icon-btn"
+                                                onClick={() => handleViewEvidence(row)}
+                                                title="View Evidence"
+                                                style={{ opacity: row.evidenceStatus === '미수집' ? 0.3 : 1 }}
+                                            >
+                                                📄
+                                            </span>
+                                            <span
+                                                className="dp-icon-btn"
+                                                onClick={() => handleUploadEvidence(row)}
+                                                title="Upload Evidence"
+                                            >
+                                                📤
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        <span className={`dp-badge ${row.evidenceStatus === '완료' ? 'dp-badge-success' : row.evidenceStatus === '수집중' ? 'dp-badge-pending' : 'dp-badge-error'}`}>
+                                            {row.evidenceStatus}
+                                        </span>
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {row.Bill_of_Lading === 'O' ? (
+                                            <span className="dp-icon-btn" onClick={() => handleViewEvidence(row, 'Bill_of_Lading')} title="View BL">📄</span>
+                                        ) : <span style={{ color: '#cbd5e1' }}>-</span>}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {row.Commercial_Invoice === 'O' ? (
+                                            <span className="dp-icon-btn" onClick={() => handleViewEvidence(row, 'Commercial_Invoice')} title="View Invoice">📄</span>
+                                        ) : <span style={{ color: '#cbd5e1' }}>-</span>}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {row.Packing_List === 'O' ? (
+                                            <span className="dp-icon-btn" onClick={() => handleViewEvidence(row, 'Packing_List')} title="View Packing List">📄</span>
+                                        ) : <span style={{ color: '#cbd5e1' }}>-</span>}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {row.Weight_List === 'O' ? (
+                                            <span className="dp-icon-btn" onClick={() => handleViewEvidence(row, 'Weight_List')} title="View Weight List">📄</span>
+                                        ) : <span style={{ color: '#cbd5e1' }}>-</span>}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {row.Mill_Certificate === 'O' ? (
+                                            <span className="dp-icon-btn" onClick={() => handleViewEvidence(row, 'Mill_Certificate')} title="View Mill Cert">📄</span>
+                                        ) : <span style={{ color: '#cbd5e1' }}>-</span>}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {row.Cargo_Insurance === 'O' ? (
+                                            <span className="dp-icon-btn" onClick={() => handleViewEvidence(row, 'Cargo_Insurance')} title="View Insurance">📄</span>
+                                        ) : <span style={{ color: '#cbd5e1' }}>-</span>}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {row.Certificate_Origin === 'O' ? (
+                                            <span className="dp-icon-btn" onClick={() => handleViewEvidence(row, 'Certificate_Origin')} title="View Origin Cert">📄</span>
+                                        ) : <span style={{ color: '#cbd5e1' }}>-</span>}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {row.Customs_clearance_Letter === 'O' ? (
+                                            <span className="dp-icon-btn" onClick={() => handleViewEvidence(row, 'Customs_clearance_Letter')} title="View Customs">📄</span>
+                                        ) : <span style={{ color: '#cbd5e1' }}>-</span>}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {row.Other === 'O' ? (
+                                            <span className="dp-icon-btn" onClick={() => handleViewEvidence(row, 'Other')} title="View Other">📄</span>
+                                        ) : <span style={{ color: '#cbd5e1' }}>-</span>}
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        <span className={`dp-badge ${row.splitStatus === 'Split 완료' ? 'dp-badge-success' : 'dp-badge-pending'}`}>
+                                            {row.splitStatus}
+                                        </span>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {evidenceData.map((row, index) => (
-                                    <tr key={row.id} style={{
-                                        borderBottom: '1px solid #f1f5f9',
-                                        transition: 'background 0.2s'
-                                    }}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                                    >
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedRows.has(row.billingDocument)}
-                                                onChange={() => handleSelectRow(row.billingDocument)}
-                                                style={{ cursor: 'pointer' }}
-                                            />
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', fontWeight: '500', color: '#1e293b' }}>
-                                            {row.billingDocument}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                <button
-                                                    onClick={() => handleViewEvidence(row)}
-                                                    title="증빙 보기"
-                                                    style={{
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        fontSize: '1.2rem',
-                                                        opacity: row.evidenceStatus === '미수집' ? 0.3 : 1
-                                                    }}
-                                                >
-                                                    📄
-                                                </button>
-                                                <button
-                                                    onClick={() => handleUploadEvidence(row)}
-                                                    title="증빙 업로드"
-                                                    style={{
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        fontSize: '1.2rem'
-                                                    }}
-                                                >
-                                                    📤
-                                                </button>
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            <select
-                                                value={row.evidenceStatus}
-                                                onChange={(e) => {
-                                                    const newData = [...evidenceData];
-                                                    newData[index].evidenceStatus = e.target.value;
-                                                    setEvidenceData(newData);
-                                                }}
-                                                style={{
-                                                    padding: '0.375rem 0.75rem',
-                                                    borderRadius: '6px',
-                                                    border: '1px solid #e0e0e0',
-                                                    fontSize: '0.85rem',
-                                                    backgroundColor: row.evidenceStatus === '완료' ? '#dcfce7' :
-                                                        row.evidenceStatus === '수집중' ? '#fef3c7' : '#f1f5f9'
-                                                }}
-                                            >
-                                                <option value="미수집">미수집</option>
-                                                <option value="수집중">수집중</option>
-                                                <option value="완료">완료</option>
-                                            </select>
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            {row.Bill_of_Lading === 'O' ? (
-                                                <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => handleViewEvidence(row, 'Bill_of_Lading')} title="BL 보기">📄</span>
-                                            ) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            {row.Commercial_Invoice === 'O' ? (
-                                                <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => handleViewEvidence(row, 'Commercial_Invoice')} title="인보이스 보기">📄</span>
-                                            ) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            {row.Packing_List === 'O' ? (
-                                                <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => handleViewEvidence(row, 'Packing_List')} title="패킹리스트 보기">📄</span>
-                                            ) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            {row.Weight_List === 'O' ? (
-                                                <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => handleViewEvidence(row, 'Weight_List')} title="중량명세서 보기">📄</span>
-                                            ) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            {row.Mill_Certificate === 'O' ? (
-                                                <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => handleViewEvidence(row, 'Mill_Certificate')} title="밀시트 보기">📄</span>
-                                            ) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            {row.Cargo_Insurance === 'O' ? (
-                                                <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => handleViewEvidence(row, 'Cargo_Insurance')} title="화물보험증권 보기">📄</span>
-                                            ) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            {row.Certificate_Origin === 'O' ? (
-                                                <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => handleViewEvidence(row, 'Certificate_Origin')} title="원산지증명서 보기">📄</span>
-                                            ) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            {row.Customs_clearance_Letter === 'O' ? (
-                                                <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => handleViewEvidence(row, 'Customs_clearance_Letter')} title="통관서류 보기">📄</span>
-                                            ) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            {row.Delivery_Note === 'O' ? (
-                                                <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => handleViewEvidence(row, 'Delivery_Note')} title="납품서 보기">📄</span>
-                                            ) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            {row.Other === 'O' ? (
-                                                <span style={{ cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => handleViewEvidence(row, 'Other')} title="기타 문서 보기">📄</span>
-                                            ) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem', textAlign: 'center' }}>
-                                            <select
-                                                value={row.splitStatus}
-                                                onChange={(e) => {
-                                                    const newData = [...evidenceData];
-                                                    newData[index].splitStatus = e.target.value;
-                                                    setEvidenceData(newData);
-                                                }}
-                                                style={{
-                                                    padding: '0.375rem 0.75rem',
-                                                    borderRadius: '6px',
-                                                    border: '1px solid #e0e0e0',
-                                                    fontSize: '0.85rem',
-                                                    backgroundColor: row.splitStatus === 'Split 완료' ? '#dcfce7' : '#f1f5f9'
-                                                }}
-                                            >
-                                                <option value="대기중">대기중</option>
-                                                <option value="Split 완료">Split 완료</option>
-                                            </select>
-                                        </td>
-                                        <td style={{ padding: '0.875rem 1rem' }}>
-                                            <input
-                                                type="text"
-                                                value={row.notes}
-                                                onChange={(e) => {
-                                                    const newData = [...evidenceData];
-                                                    newData[index].notes = e.target.value;
-                                                    setEvidenceData(newData);
-                                                }}
-                                                placeholder="메모"
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '0.5rem',
-                                                    border: '1px solid #e0e0e0',
-                                                    borderRadius: '4px',
-                                                    fontSize: '0.85rem'
-                                                }}
-                                            />
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Summary Stats */}
-                    <div style={{
-                        marginTop: '1.5rem',
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                        gap: '1rem'
-                    }}>
-                        <div style={{
-                            padding: '1rem',
-                            background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-                            borderRadius: '8px',
-                            border: '1px solid #bae6fd'
-                        }}>
-                            <div style={{ fontSize: '0.85rem', color: '#0369a1', marginBottom: '0.25rem' }}>전체 전표</div>
-                            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#0c4a6e' }}>{evidenceData.length}</div>
-                        </div>
-                        <div style={{
-                            padding: '1rem',
-                            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-                            borderRadius: '8px',
-                            border: '1px solid #fcd34d'
-                        }}>
-                            <div style={{ fontSize: '0.85rem', color: '#b45309', marginBottom: '0.25rem' }}>수집중</div>
-                            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#78350f' }}>
-                                {evidenceData.filter(r => r.evidenceStatus === '수집중').length}
-                            </div>
-                        </div>
-                        <div style={{
-                            padding: '1rem',
-                            background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
-                            borderRadius: '8px',
-                            border: '1px solid #86efac'
-                        }}>
-                            <div style={{ fontSize: '0.85rem', color: '#15803d', marginBottom: '0.25rem' }}>수집 완료</div>
-                            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#14532d' }}>
-                                {evidenceData.filter(r => r.evidenceStatus === '완료').length}
-                            </div>
-                        </div>
-                    </div>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             ) : (
-                <div className="empty-state" style={{
-                    padding: '3rem',
-                    textAlign: 'center',
-                    color: '#94a3b8'
-                }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: '#475569' }}>증빙 수집 대상이 없습니다</h4>
-                    <p style={{ margin: 0 }}>Step 1에서 전표를 확정해주세요.</p>
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
+                    <p>No evidence data available.</p>
                 </div>
             )}
 
             <DataImportModal
                 isOpen={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
-                onDMSDownload={handleDMSDownload}
+                onSapFetch={() => { }} // Not used in Step 2
                 initialTab={importModalTab}
                 project={project}
                 currentStep="step2"
+                onDMSDownload={handleDMSDownload}
             />
 
-
-            {/* Download Progress - Modern ProgressBar (Centered Modal) */}
-            {showDownloadProgress && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 9999,
-                    backdropFilter: 'blur(4px)'
-                }}>
-                    <div style={{
-                        width: '90%',
-                        maxWidth: '600px',
-                        animation: 'fadeInScale 0.3s ease-out'
-                    }}>
-                        <ProgressBar progress={downloadProgress} />
-                    </div>
-                </div>
-            )}
-
-            <PDFViewerModal
-                isOpen={pdfViewerState.isOpen}
-                onClose={() => setPdfViewerState(prev => ({ ...prev, isOpen: false }))}
-                files={pdfViewerState.files}
-                title={pdfViewerState.title}
-                onDelete={handleDeleteEvidence}
-            />
             <EvidenceUploadModal
                 isOpen={uploadModalState.isOpen}
-                onClose={() => setUploadModalState(prev => ({ ...prev, isOpen: false }))}
+                onClose={() => setUploadModalState({ isOpen: false, billingDocument: '' })}
                 onUpload={onManualUpload}
+                billingDocument={uploadModalState.billingDocument}
             />
-        </>
+
+
+        </div>
     );
 };
 

@@ -561,8 +561,8 @@ const LedgerTable = forwardRef(({ data, onDataChange, isLoading, visibleColumns,
   if (!data || data.length === 0) return <div className="empty-state"><p>표시할 데이터가 없습니다.</p></div>;
 
   return (
-    <div className={`table-container ${isEditMode ? 'edit-mode' : ''}`} onContextMenu={(e) => e.preventDefault()}>
-      <table className="ledger-table">
+    <div className={`dp-table-wrapper ${isEditMode ? 'edit-mode' : ''}`} onContextMenu={(e) => e.preventDefault()}>
+      <table className="dp-table dp-table-bordered">
         <thead>
           {columnGroups && columnGroups.length > 0 && (
             <tr className="group-header-row">
@@ -585,7 +585,7 @@ const LedgerTable = forwardRef(({ data, onDataChange, isLoading, visibleColumns,
                         <th
                           key={`group-${groupCells.length}`}
                           colSpan={currentColSpan}
-                          className="group-header-cell"
+                          className="dp-th-group-header"
                           style={{
                             textAlign: 'center',
                             padding: '8px',
@@ -610,7 +610,7 @@ const LedgerTable = forwardRef(({ data, onDataChange, isLoading, visibleColumns,
                     <th
                       key={`group-${groupCells.length}`}
                       colSpan={currentColSpan}
-                      className="group-header-cell"
+                      className="dp-th-group-header"
                       style={{
                         textAlign: 'center',
                         padding: '8px',
@@ -631,7 +631,7 @@ const LedgerTable = forwardRef(({ data, onDataChange, isLoading, visibleColumns,
           )}
           <tr>
             <th
-              className="selection-column-header"
+              className={columnGroups && columnGroups.length > 0 ? "dp-th-sub" : ""}
               onClick={handleSelectAll}
               title="Select All"
             >
@@ -768,6 +768,8 @@ const LedgerTable = forwardRef(({ data, onDataChange, isLoading, visibleColumns,
                   // Custom cell class name
                   const customClassName = getCellClassName ? getCellClassName(row, header, rowIndex, colIndex) : '';
 
+                  const isNumeric = /QUANTITY|AMOUNT/i.test(header);
+
                   return (
                     <td
                       key={`${rowIndex}-${header}`}
@@ -776,7 +778,12 @@ const LedgerTable = forwardRef(({ data, onDataChange, isLoading, visibleColumns,
                       onMouseEnter={() => handleMouseEnter(rowIndex, colIndex)}
                       onClick={(e) => onCellClick && onCellClick(row, header, rowIndex, colIndex, e)}
                       onDoubleClick={() => handleDoubleClick && handleDoubleClick(rowIndex, colIndex)}
-                      style={{ width: columnWidths[header], minWidth: columnWidths[header], maxWidth: columnWidths[header] }}
+                      style={{
+                        width: columnWidths[header],
+                        minWidth: columnWidths[header],
+                        maxWidth: columnWidths[header],
+                        textAlign: isNumeric ? 'right' : 'left'
+                      }}
                       title={row[header]}
                     >
                       {isEditing ? (

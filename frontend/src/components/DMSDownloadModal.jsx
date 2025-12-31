@@ -32,7 +32,7 @@ const DMSDownloadModal = ({ isOpen, onClose, project, onDownload }) => {
 
     const handleBrowseFolder = async () => {
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/dms/select-folder', {
+            const response = await fetch('/api/dms/select-folder', {
                 method: 'POST'
             });
             const result = await response.json();

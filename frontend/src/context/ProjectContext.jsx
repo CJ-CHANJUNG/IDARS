@@ -49,7 +49,7 @@ export const ProjectProvider = ({ children }) => {
     const loadProjectData = useCallback(async (projectId) => {
         setIsLoading(true);
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${projectId}/load`);
+            const response = await fetch(`/api/projects/${projectId}/load`);
             const data = await response.json();
 
             if (response.ok) {

@@ -4,7 +4,7 @@ import { useProject } from '../context/ProjectContext';
  * Custom hook for Step 3 event handlers
  * Manages extraction, comparison, and evidence viewing logic
  */
-export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
+export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows, setExtractionProgress) => {
     const {
         project,
         comparisonResults, setComparisonResults,
@@ -50,8 +50,30 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
         }
 
         setIsLoading(true);
+
+        // ★ Start Polling
+        let intervalId;
+        if (setExtractionProgress) {
+            setExtractionProgress({ status: 'running', current: 0, total: selectedIds.length, message: '추출 시작...' });
+
+            const pollProgress = async () => {
+                try {
+                    const res = await fetch(`/api/projects/${project.id}/extraction-progress`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setExtractionProgress(data);
+                    }
+                } catch (e) {
+                    console.error("Polling error", e);
+                }
+            };
+
+            // Initial poll
+            pollProgress();
+            intervalId = setInterval(pollProgress, 1000);
+        }
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/step3/extract-and-compare`, {
+            const response = await fetch(`/api/projects/${project.id}/step3/extract-and-compare`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -91,6 +113,8 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
             console.error(err);
             alert('증빙 파일을 검색하는데 실패했습니다.');
         } finally {
+            if (intervalId) clearInterval(intervalId);
+            if (setExtractionProgress) setExtractionProgress(null);
             setIsLoading(false);
         }
     };
@@ -100,7 +124,7 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
 
         try {
             const response = await fetch(
-                `http://127.0.0.1:5000/api/projects/${project.id}/step3/save-draft`,
+                `/api/projects/${project.id}/step3/save-draft`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -124,7 +148,7 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
     const handleViewEvidence = async (billingDocument, filterType = null, field = null, coordinates = null) => {
         try {
             const response = await fetch(
-                `http://127.0.0.1:5000/api/projects/${project.id}/evidence/search?billingDocument=${billingDocument}`
+                `/api/projects/${project.id}/evidence/search?billingDocument=${billingDocument}`
             );
             let files = await response.json();
 
@@ -153,7 +177,7 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
                 // Open first PDF file in new window/tab
                 if (files.length > 0) {
                     const firstFile = files[0];
-                    let pdfUrl = `http://127.0.0.1:5000/api/projects/${project.id}/files/${firstFile.path}`;
+                    let pdfUrl = `/api/projects/${project.id}/files/${firstFile.path}`;
 
                     // Append highlight coordinates if available
                     if (coordinates && Array.isArray(coordinates) && coordinates.length === 4) {
@@ -210,7 +234,7 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
 
         try {
             const response = await fetch(
-                `http://127.0.0.1:5000/api/projects/${project.id}/step3/confirm-judgment`,
+                `/api/projects/${project.id}/step3/confirm-judgment`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -264,7 +288,7 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows) => {
         console.log('[DEBUG] Sending request...');
         try {
             const response = await fetch(
-                `http://127.0.0.1:5000/api/projects/${project.id}/step3/send-to-dashboard`,
+                `/api/projects/${project.id}/step3/send-to-dashboard`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

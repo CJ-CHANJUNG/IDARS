@@ -45,17 +45,18 @@ const ProgressBar = ({ progress }) => {
     const config = getStatusConfig();
 
     return (
-        <div className="progress-bar-container" style={{ background: config.bgColor }}>
+        <div className="progress-bar-container">
+            {/* Top Section: Count (Left) and Percentage (Right) */}
             <div className="progress-bar-header">
-                <div className="progress-bar-title">
-                    <span className="progress-icon">{config.icon}</span>
-                    <span className="progress-message">{message}</span>
-                </div>
-                <div className="progress-percentage" style={{ color: config.color }}>
+                <span className="progress-count">
+                    {current} / {total}
+                </span>
+                <span className="progress-percentage">
                     {percentage}%
-                </div>
+                </span>
             </div>
 
+            {/* Middle Section: Progress Bar */}
             <div className="progress-bar-track">
                 <div
                     className={`progress-bar-fill ${status === 'running' ? 'animated' : ''}`}
@@ -63,26 +64,12 @@ const ProgressBar = ({ progress }) => {
                         width: `${percentage}%`,
                         background: config.gradient
                     }}
-                >
-                    {status === 'running' && (
-                        <div className="progress-bar-shimmer"></div>
-                    )}
-                </div>
+                />
             </div>
 
-            <div className="progress-bar-details">
-                <span className="progress-count">
-                    {current} / {total} 완료
-                </span>
-                {status === 'running' && (
-                    <span className="progress-status-text">처리 중...</span>
-                )}
-                {status === 'completed' && (
-                    <span className="progress-status-text completed">완료!</span>
-                )}
-                {(status === 'error' || status === 'failed') && (
-                    <span className="progress-status-text error">오류 발생</span>
-                )}
+            {/* Bottom Section: Status Message */}
+            <div className={`progress-message ${status}`}>
+                {message || '처리 중...'}
             </div>
         </div>
     );

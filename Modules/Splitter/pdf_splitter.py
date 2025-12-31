@@ -66,6 +66,10 @@ DOCUMENT_PATTERNS = {
         (r'수출신고필증', 105),  # 띄어쓰기 없는 경우 명시적 추가
         (r'수입신고필증', 105),
         
+        # ★ 구어체/통칭 표현
+        (r'수출\s?면장', 105),  # 수출면장 (통칭)
+        (r'수입\s?면장', 105),  # 수입면장 (통칭)
+        
         # 영문 패턴
         (r'EXPORT\s*DECLARATION', 100),
         (r'IMPORT\s*DECLARATION', 100), 
@@ -182,13 +186,26 @@ class PDFSplitter:
         best_conf = 0.0
         best_method = 'unknown'
         scores = {}  # 모든 점수 추적
+        
+        total_len = len(text_upper)
+        if total_len == 0: return None, 0.0, 'empty'
 
         for doc_type, patterns in DOCUMENT_PATTERNS.items():
             max_score = 0
             for pattern, score in patterns:
-                if re.search(pattern, text_upper):
-                    if score > max_score:
-                        max_score = score
+                match = re.search(pattern, text_upper)
+                if match:
+                    current_score = score
+                    
+                    # ★ 위치 가산점: 문서 상단 20% 내에 키워드가 있으면 타이틀일 확률 높음 (+20점)
+                    # 이를 통해 본문에 언급된 키워드(참조)와 실제 타이틀을 구분
+                    match_pos = match.start() / total_len
+                    if match_pos < 0.2:
+                        current_score += 20
+                    
+                    if current_score > max_score:
+                        max_score = current_score
+            
             scores[doc_type] = max_score
             
             if max_score > best_conf:
@@ -254,9 +271,12 @@ class PDFSplitter:
                 if doc_type:
                     print(f"    ✅ Rescued! Detected: {doc_type}")
                 else:
-                    # 파일명 기반 분류
+                    # 파일명 기반 분류 (OCR 실패 시 대체)
                     filename = str(self.pdf_path.name).upper()
-                    if 'EP-' in filename or 'EXPORT' in filename or 'DECLARATION' in filename:
+                    
+                    # ★ Customs clearance patterns in filename
+                    customs_keywords = ['EP-', 'EXP', 'EXPORT', 'DECLARATION', '수출면장', '수입면장', '신고필증', '면장']
+                    if any(keyword in filename or keyword.upper() in filename for keyword in customs_keywords):
                         doc_type = 'Customs_clearance_Letter'
                         conf = 80
                         method = 'filename_fallback'

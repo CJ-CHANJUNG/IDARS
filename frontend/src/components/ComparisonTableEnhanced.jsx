@@ -129,9 +129,9 @@ const ComparisonTableEnhanced = ({
                 style={{
                     flex: 1,
                     overflow: 'auto',
-                    background: 'white',
+                    background: '#1f1f2f',
                     borderRadius: '8px',
-                    border: '1px solid #e2e8f0',
+                    border: '1px solid #2a2a3a',
                     maxHeight: 'calc(100vh - 250px)' // Ensure scrollbar is visible
                 }}
             >

@@ -16,7 +16,7 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/projects');
+            const response = await fetch('/api/projects');
             if (!response.ok) {
                 throw new Error('Failed to fetch projects');
             }
@@ -35,7 +35,7 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
 
         setIsLoading(true);
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${projectId}`, {
+            const response = await fetch(`/api/projects/${projectId}`, {
                 method: 'DELETE'
             });
             const result = await response.json();

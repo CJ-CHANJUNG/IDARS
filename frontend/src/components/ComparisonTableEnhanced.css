@@ -7,12 +7,14 @@
     display: table-cell !important;
 }
 
-/* Existing styles */
+/* Dark Theme Styles */
 .comparison-enhanced-container {
     display: flex;
     flex-direction: column;
     height: 100%;
     gap: 1rem;
+    background: #0f0f1e;
+    padding: 1rem;
 }
 
 .confidence-badge {
@@ -25,16 +27,39 @@
 }
 
 .conf-high {
-    background: #d1fae5;
-    color: #065f46;
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
 }
 
 .conf-mid {
-    background: #fef3c7;
-    color: #92400e;
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
 }
 
 .conf-low {
-    background: #fee2e2;
-    color: #991b1b;
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+/* Scrollbar Styling */
+.view-mode-basic::-webkit-scrollbar,
+.view-mode-detailed::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.view-mode-basic::-webkit-scrollbar-track,
+.view-mode-detailed::-webkit-scrollbar-track {
+    background: #1a1a2a;
+}
+
+.view-mode-basic::-webkit-scrollbar-thumb,
+.view-mode-detailed::-webkit-scrollbar-thumb {
+    background: #3a3a4a;
+    border-radius: 4px;
+}
+
+.view-mode-basic::-webkit-scrollbar-thumb:hover,
+.view-mode-detailed::-webkit-scrollbar-thumb:hover {
+    background: #4a4a5a;
 }

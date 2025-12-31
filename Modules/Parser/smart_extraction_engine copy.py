@@ -321,13 +321,13 @@ class SmartExtractionEngine:
             
             # 예상 응답 형태 생성
             if 'currency' in output_format:
-                expected_fields_example[field['name']] = {"value": 0.0, "currency": "USD"}
+                expected_fields_example[field['name']] = {"value": 0.0, "currency": "USD", "coordinates": [0, 0, 0, 0]}
             elif 'unit' in output_format:
-                expected_fields_example[field['name']] = {"value": 0.0, "unit": "MT"}
+                expected_fields_example[field['name']] = {"value": 0.0, "unit": "MT", "coordinates": [0, 0, 0, 0]}
             elif output_format.get('format') == 'date':
-                expected_fields_example[field['name']] = {"value": "YYYY-MM-DD", "format": "date"}
+                expected_fields_example[field['name']] = {"value": "YYYY-MM-DD", "format": "date", "coordinates": [0, 0, 0, 0]}
             else:
-                expected_fields_example[field['name']] = {"value": "추출된 값", "format": "text"}
+                expected_fields_example[field['name']] = {"value": "추출된 값", "format": "text", "coordinates": [0, 0, 0, 0]}
         
         prompt = f"""
 다음 {doc_type} 문서의 OCR 텍스트를 분석하세요:
@@ -435,8 +435,12 @@ class SmartExtractionEngine:
                         validation_note = f"N:1 Mismatch (Ext: {ext_amount}/{ext_qty}, Exp: {exp_amount}/{exp_qty})"
                         
                         # 다음 재시도를 위한 프롬프트 보강 (라인 아이템 정밀 분석 지시)
-                        if attempt == 0:
-                            prompt += f"\n\n**[재분석 지시]** 현재 추출된 합계가 기대값(금액:{exp_amount}, 수량:{exp_qty})과 일치하지 않습니다. 인보이스 전체 합계(Total)가 아닌, 문서 내의 개별 라인 아이템들을 낱낱이 분석하여 이 기대값과 정확히 일치하는 항목을 찾아 그 값을 최종 결과로 반환하세요."
+                        prompt += f"""
+                            **OUTPUT REQUIREMENT:**
+                            - **CRITICAL**: Set the `total_amount` field to the **SUMMED VALUE** ({exp_amount}), NOT the document total.
+                            - In the 'evidence' field, you MUST explain the combination: e.g., "Sum of Line Item 1 (100.00) and Line Item 3 (200.00) matches expected {exp_amount}".
+                            - In the 'notes' field, state clearly: "Found via N:1 combination".
+                            """
                 
                 if is_valid or len(ocr_text) < 50:
                     return normalized_result
@@ -479,15 +483,194 @@ class SmartExtractionEngine:
                         "notes": f"API 오류 (Max Retries): {e}"
                     }
 
+    def _find_text_coordinates(self, doc, text_val):
+        """
+        Find coordinates of text in PDF using PyMuPDF (fitz).
+        Returns [ymin, xmin, ymax, xmax] normalized to 0-1000.
+        """
+        if not text_val:
+            return None
+            
+        try:
+            page = doc[0]  # Assume first page for now
+            text_val_str = str(text_val).strip()
+            
+            # Try exact match first
+            quads = page.search_for(text_val_str)
+            
+            # If not found, try variations for numbers
+            if not quads:
+                # 1. Try adding/removing commas (e.g. 1000 <-> 1,000)
+                if ',' in text_val_str:
+                    clean_val = text_val_str.replace(',', '')
+                    quads = page.search_for(clean_val)
+                else:
+                    # Try adding commas (simple thousands separator)
+                    try:
+                        if text_val_str.replace('.', '').isdigit():
+                            float_val = float(text_val_str)
+                            formatted_val = "{:,.2f}".format(float_val) # 1,000.00
+                            quads = page.search_for(formatted_val)
+                            if not quads:
+                                formatted_val_no_dec = "{:,}".format(int(float_val)) # 1,000
+                                quads = page.search_for(formatted_val_no_dec)
+                    except:
+                        pass
+            
+            if quads:
+                # Use the first occurrence
+                quad = quads[0]
+                rect = quad.rect
+                
+                # Normalize to 0-1000
+                width = page.rect.width
+                height = page.rect.height
+                
+                ymin = int((rect.y0 / height) * 1000)
+                xmin = int((rect.x0 / width) * 1000)
+                ymax = int((rect.y1 / height) * 1000)
+                xmax = int((rect.x1 / width) * 1000)
+                
+                return [ymin, xmin, ymax, xmax]
+                
+        except Exception as e:
+            print(f"Error finding coordinates: {e}")
+            
+        return None
+
     async def process_single_pdf_async(self, pdf_path: str, slip_id: str, extraction_mode: str = 'basic', expected_values: Dict = None) -> Dict:
         """
         단일 PDF 파일 비동기 처리
+        """
+        filename = os.path.basename(pdf_path).upper()
         
-        Args:
-            pdf_path: PDF 파일 경로
-            slip_id: 전표 ID
-            extraction_mode: 'basic' 또는 'detailed'
-            expected_values: 기대 금액/수량 힌트
+        # 0. 파일명 기반 1차 필터링
+        is_target = False
+        if "BILL_OF_LADING" in filename or "WAYBILL" in filename:
+            is_target = True
+        elif "COMMERCIAL_INVOICE" in filename or "INVOICE" in filename:
+            doc_type = "INVOICE"
+        
+        print(f"   ✅ 타입 확정: {os.path.basename(pdf_path)} -> {doc_type}")
+        
+        # ✅ extraction_mode에 따라 필드 선택
+        extraction_modes = self.extraction_config.get('extraction_modes', {})
+        mode_config = extraction_modes.get(extraction_mode, extraction_modes.get('basic'))  # fallback to basic
+        
+        if mode_config and 'document_types' in mode_config:
+            document_types = mode_config['document_types']
+            if doc_type in document_types:
+                extraction_fields = document_types[doc_type].get('fields', [])
+                print(f"   📋 {extraction_mode} 모드 - {doc_type} 필드: {len(extraction_fields)}개")
+            else:
+                print(f"   ⚠️ {doc_type} 설정 없음, 스킵")
+                return {
+                    "slip_id": slip_id,
+                    "documents": [],
+                    "source": "pdf_ocr"
+                }
+        else:
+            print(f"   ⚠️ extraction_mode '{extraction_mode}' 설정 없음")
+            return {
+                "slip_id": slip_id,
+                "documents": [],
+                "source": "pdf_ocr"
+            }
+        
+        documents = []
+        
+        try:
+            full_text = ""
+            doc = fitz.open(pdf_path)
+            num_pages = len(doc)
+            pages_to_read = min(num_pages, 3)
+            
+            for i in range(pages_to_read):
+                page = doc[i]
+                text = page.get_text()
+                if len(text.strip()) < OCR_THRESHOLD:
+                    text = self.high_quality_ocr(pdf_path, i)
+                full_text += f"\n--- Page {i+1} ---\n{text}"
+            
+            doc.close()
+            
+            # 3. Gemini API 비동기 호출
+            print(f"   🤖 API 요청: {os.path.basename(pdf_path)}")
+            extraction_result = await self.extract_with_gemini_async(full_text, doc_type, extraction_fields, expected_values)
+            
+            extraction_result['page'] = 1
+            extraction_result['type'] = doc_type
+            extraction_result['file_name'] = os.path.basename(pdf_path)
+            
+            documents.append(extraction_result)
+            print(f"   ✨ 완료: {os.path.basename(pdf_path)}")
+            
+            return {
+                "slip_id": slip_id,
+                "documents": documents,
+                "source": "pdf_ocr"
+            }
+            
+        except Exception as e:
+            print(f"❌ 오류 ({os.path.basename(pdf_path)}): {e}")
+            return {
+                "slip_id": slip_id,
+                "documents": [],
+                "error": str(e)
+            }
+
+
+    def _find_text_coordinates(self, pdf_path: str, text_to_find: str) -> List[int]:
+        """
+        PDF에서 텍스트 좌표 찾기 (Post-processing)
+        Returns: [ymin, xmin, ymax, xmax] (0~1000 normalized)
+        """
+        if not text_to_find:
+            return [0, 0, 0, 0]
+            
+        try:
+            doc = fitz.open(pdf_path)
+            # 첫 3페이지만 검색
+            for i in range(min(len(doc), 3)):
+                page = doc[i]
+                width = page.rect.width
+                height = page.rect.height
+                
+                # 1. 정확한 매칭 검색
+                rects = page.search_for(str(text_to_find))
+                
+                # 2. 실패 시, 콤마/공백 제거 후 검색 (유연성)
+                if not rects:
+                    clean_text = str(text_to_find).replace(',', '').replace(' ', '')
+                    if len(clean_text) > 0:
+                        rects = page.search_for(clean_text)
+                
+                if rects:
+                    # 첫 번째 매칭 결과 사용
+                    rect = rects[0]
+                    
+                    # 좌표 정규화 (0~1000)
+                    # fitz: [x0, y0, x1, y1] (left, top, right, bottom)
+                    # Target: [ymin, xmin, ymax, xmax]
+                    
+                    xmin = int((rect.x0 / width) * 1000)
+                    ymin = int((rect.y0 / height) * 1000)
+                    xmax = int((rect.x1 / width) * 1000)
+                    ymax = int((rect.y1 / height) * 1000)
+                    
+                    doc.close()
+                    return [ymin, xmin, ymax, xmax]
+            
+            doc.close()
+            return [0, 0, 0, 0]
+            
+        except Exception as e:
+            print(f"⚠️ 좌표 검색 오류: {e}")
+            return [0, 0, 0, 0]
+
+    async def process_single_pdf_async(self, pdf_path: str, slip_id: str, extraction_mode: str = 'basic', expected_values: Dict = None) -> Dict:
+        """
+        단일 PDF 파일 비동기 처리
         """
         filename = os.path.basename(pdf_path).upper()
         
@@ -561,6 +744,29 @@ class SmartExtractionEngine:
             print(f"   🤖 API 요청: {os.path.basename(pdf_path)}")
             extraction_result = await self.extract_with_gemini_async(full_text, doc_type, extraction_fields, expected_values)
             
+            # ✅ Post-processing: 좌표 찾기 (Highlighting)
+            print(f"   🔍 좌표 검색 중: {os.path.basename(pdf_path)}")
+            fields = extraction_result.get('fields', {})
+            for field_name, field_data in fields.items():
+                if isinstance(field_data, dict):
+                    value = field_data.get('value')
+                    # 값이 있고 좌표가 없거나 [0,0,0,0]인 경우 검색
+                    if value and (not field_data.get('coordinates') or field_data.get('coordinates') == [0, 0, 0, 0]):
+                        coords = self._find_text_coordinates(pdf_path, str(value))
+                        field_data['coordinates'] = coords
+            
+            # Evidence 좌표 찾기 (N:1)
+            evidence = extraction_result.get('evidence')
+            if evidence and isinstance(evidence, list):
+                # evidence가 좌표 리스트가 아니라 값 리스트일 수 있음. 
+                # 하지만 prompt에서 좌표를 달라고 했음. 
+                # Text 모드에서는 Gemini가 좌표를 못 주므로 값만 줄 수도 있음.
+                # 만약 값 리스트라면 좌표를 찾아야 함.
+                # 여기서는 Gemini가 텍스트 모드에서 뭘 줄지 불확실하므로, 
+                # evidence 필드에 있는 값들을 찾아서 좌표 리스트로 변환하는 로직이 필요할 수 있음.
+                # 일단 패스 (Gemini가 텍스트 모드에서 evidence에 뭘 넣을지 프롬프트에 달렸음)
+                pass
+
             extraction_result['page'] = 1
             extraction_result['type'] = doc_type
             extraction_result['file_name'] = os.path.basename(pdf_path)
@@ -581,7 +787,6 @@ class SmartExtractionEngine:
                 "documents": [],
                 "error": str(e)
             }
-
 
     async def process_project_pdfs_async(self, project_id: str, split_dir: str, extraction_mode: str = 'basic', target_ids: List[str] = None, progress_callback=None, expected_values_map: Dict = None) -> List[Dict]:
         """

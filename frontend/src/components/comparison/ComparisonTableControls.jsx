@@ -17,58 +17,57 @@ const ComparisonTableControls = ({
             display: 'flex',
             flexDirection: 'column',
             gap: '0.75rem',
-            padding: '0.75rem 1rem',
-            background: 'white',
-            borderRadius: '8px',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-            marginBottom: '0.5rem'
+            padding: '1rem 1.5rem',
+            background: '#1a1a2e',
+            borderRadius: '12px',
+            border: '1px solid #2a2a3a',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            marginBottom: '1rem'
         }}>
             {/* Top Row: Title and Stats */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <h4 style={{ margin: 0, fontSize: '0.95rem' }}>1차 대사 결과</h4>
-                    <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.85rem' }}>
-                        <span className="stat-badge">전체: {stats.total}</span>
-                        <span className="stat-badge stat-match">✅ {stats.complete_match}</span>
-                        <span className="stat-badge stat-warning">⚠️ {stats.partial_error}</span>
-                        <span className="stat-badge stat-error">❌ {stats.review_required}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                    <h4 style={{ margin: 0, fontSize: '1rem', color: '#ffffff', fontWeight: '700' }}>1차 대사 결과</h4>
+                    <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.85rem' }}>
+                        <span style={{ padding: '0.2rem 0.6rem', background: '#2d2d3d', color: '#e0e0e0', borderRadius: '6px', border: '1px solid #3a3a4a' }}>전체: {stats.total}</span>
+                        <span style={{ padding: '0.2rem 0.6rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>✅ {stats.complete_match}</span>
+                        <span style={{ padding: '0.2rem 0.6rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>⚠️ {stats.partial_error}</span>
+                        <span style={{ padding: '0.2rem 0.6rem', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>❌ {stats.review_required}</span>
                         {stats.corrected > 0 && (
-                            <span className="stat-badge" style={{ background: '#dbeafe', color: '#1e40af' }}>
+                            <span style={{ padding: '0.2rem 0.6rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                                 ✏️ 수정: {stats.corrected}
                             </span>
                         )}
                         {stats.selected > 0 && (
-                            <span className="stat-badge" style={{ background: '#fef3c7', color: '#92400e' }}>
+                            <span style={{ padding: '0.2rem 0.6rem', background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa', borderRadius: '6px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
                                 ☑️ 선택: {stats.selected}
                             </span>
                         )}
                     </div>
                 </div>
-                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                    📊 토큰: <span style={{ fontWeight: '600' }}>📥 {totalTokens.input.toLocaleString()}</span> / <span style={{ fontWeight: '600' }}>📤 {totalTokens.output.toLocaleString()}</span>
+                <div style={{ fontSize: '0.85rem', color: '#a0a0b0' }}>
+                    📊 토큰: <span style={{ fontWeight: '600', color: '#60a5fa' }}>📥 {totalTokens.input.toLocaleString()}</span> / <span style={{ fontWeight: '600', color: '#34d399' }}>📤 {totalTokens.output.toLocaleString()}</span>
                 </div>
             </div>
 
             {/* Bottom Row: Bulk Selection Controls and Final Judgment */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid #2a2a3a' }}>
                 {/* Bulk Selection Buttons */}
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600', marginRight: '0.5rem' }}>일괄 선택:</span>
+                    <span style={{ fontSize: '0.85rem', color: '#a0a0b0', fontWeight: '600', marginRight: '0.5rem' }}>일괄 선택:</span>
                     <button
                         onClick={() => onSelectAll && onSelectAll({ target: { checked: true } })}
                         style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#f1f5f9',
-                            color: '#475569',
-                            border: '1px solid #cbd5e1',
+                            background: '#2d2d3d',
+                            color: '#e0e0e0',
+                            border: '1px solid #3a3a4a',
                             borderRadius: '6px',
                             fontSize: '0.8rem',
-                            fontWeight: '500',
+                            fontWeight: '600',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                         }}
-                        onMouseOver={(e) => e.target.style.background = '#e2e8f0'}
-                        onMouseOut={(e) => e.target.style.background = '#f1f5f9'}
                     >
                         ☑️ 전체 선택
                     </button>
@@ -76,36 +75,32 @@ const ComparisonTableControls = ({
                         onClick={() => onSelectAll && onSelectAll({ target: { checked: false } })}
                         style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#f1f5f9',
-                            color: '#475569',
-                            border: '1px solid #cbd5e1',
+                            background: '#2d2d3d',
+                            color: '#e0e0e0',
+                            border: '1px solid #3a3a4a',
                             borderRadius: '6px',
                             fontSize: '0.8rem',
-                            fontWeight: '500',
+                            fontWeight: '600',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                         }}
-                        onMouseOver={(e) => e.target.style.background = '#e2e8f0'}
-                        onMouseOut={(e) => e.target.style.background = '#f1f5f9'}
                     >
                         ⬜ 전체 해제
                     </button>
-                    <div style={{ width: '1px', height: '20px', background: '#cbd5e1', margin: '0 0.25rem' }}></div>
+                    <div style={{ width: '1px', height: '20px', background: '#3a3a4a', margin: '0 0.25rem' }}></div>
                     <button
                         onClick={() => onSelectByStatus && onSelectByStatus('complete_match')}
                         style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#d1fae5',
-                            color: '#065f46',
-                            border: '1px solid #10b981',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#34d399',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
                             borderRadius: '6px',
                             fontSize: '0.8rem',
-                            fontWeight: '500',
+                            fontWeight: '600',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                         }}
-                        onMouseOver={(e) => e.target.style.background = '#a7f3d0'}
-                        onMouseOut={(e) => e.target.style.background = '#d1fae5'}
                     >
                         ✅ 일치만
                     </button>
@@ -113,17 +108,15 @@ const ComparisonTableControls = ({
                         onClick={() => onSelectByStatus && onSelectByStatus('partial_error')}
                         style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#fef3c7',
-                            color: '#92400e',
-                            border: '1px solid #f59e0b',
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            color: '#fbbf24',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
                             borderRadius: '6px',
                             fontSize: '0.8rem',
-                            fontWeight: '500',
+                            fontWeight: '600',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                         }}
-                        onMouseOver={(e) => e.target.style.background = '#fde68a'}
-                        onMouseOut={(e) => e.target.style.background = '#fef3c7'}
                     >
                         ⚠️ 불일치만
                     </button>
@@ -131,17 +124,15 @@ const ComparisonTableControls = ({
                         onClick={() => onSelectByStatus && onSelectByStatus('review_required')}
                         style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#fee2e2',
-                            color: '#991b1b',
-                            border: '1px solid #ef4444',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: '#f87171',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
                             borderRadius: '6px',
                             fontSize: '0.8rem',
-                            fontWeight: '500',
+                            fontWeight: '600',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                         }}
-                        onMouseOver={(e) => e.target.style.background = '#fecaca'}
-                        onMouseOut={(e) => e.target.style.background = '#fee2e2'}
                     >
                         ❌ 오류만
                     </button>
@@ -149,36 +140,34 @@ const ComparisonTableControls = ({
                         onClick={() => onSelectByStatus && onSelectByStatus('no_evidence')}
                         style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#f3f4f6',
-                            color: '#374151',
-                            border: '1px solid #9ca3af',
+                            background: 'rgba(148, 163, 184, 0.15)',
+                            color: '#94a3b8',
+                            border: '1px solid rgba(148, 163, 184, 0.3)',
                             borderRadius: '6px',
                             fontSize: '0.8rem',
-                            fontWeight: '500',
+                            fontWeight: '600',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                         }}
-                        onMouseOver={(e) => e.target.style.background = '#e5e7eb'}
-                        onMouseOut={(e) => e.target.style.background = '#f3f4f6'}
                     >
                         🚫 증빙없음
                     </button>
                 </div>
 
                 {/* Bulk Action Buttons */}
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', borderLeft: '1px solid #e2e8f0', paddingLeft: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600', marginRight: '0.25rem' }}>선택 항목 적용:</span>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', borderLeft: '1px solid #2a2a3a', paddingLeft: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#a0a0b0', fontWeight: '600', marginRight: '0.25rem' }}>선택 항목 적용:</span>
                     <button
                         onClick={() => onBulkUpdate && onBulkUpdate('complete_match')}
                         disabled={!selectedRows || selectedRows.size === 0}
                         style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#d1fae5',
-                            color: '#065f46',
-                            border: '1px solid #10b981',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#34d399',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
                             borderRadius: '6px',
                             fontSize: '0.8rem',
-                            fontWeight: '500',
+                            fontWeight: '600',
                             cursor: (!selectedRows || selectedRows.size === 0) ? 'not-allowed' : 'pointer',
                             opacity: (!selectedRows || selectedRows.size === 0) ? 0.6 : 1,
                             transition: 'all 0.2s'
@@ -191,12 +180,12 @@ const ComparisonTableControls = ({
                         disabled={!selectedRows || selectedRows.size === 0}
                         style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#fef3c7',
-                            color: '#92400e',
-                            border: '1px solid #f59e0b',
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            color: '#fbbf24',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
                             borderRadius: '6px',
                             fontSize: '0.8rem',
-                            fontWeight: '500',
+                            fontWeight: '600',
                             cursor: (!selectedRows || selectedRows.size === 0) ? 'not-allowed' : 'pointer',
                             opacity: (!selectedRows || selectedRows.size === 0) ? 0.6 : 1,
                             transition: 'all 0.2s'
@@ -209,12 +198,12 @@ const ComparisonTableControls = ({
                         disabled={!selectedRows || selectedRows.size === 0}
                         style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#fee2e2',
-                            color: '#991b1b',
-                            border: '1px solid #ef4444',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: '#f87171',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
                             borderRadius: '6px',
                             fontSize: '0.8rem',
-                            fontWeight: '500',
+                            fontWeight: '600',
                             cursor: (!selectedRows || selectedRows.size === 0) ? 'not-allowed' : 'pointer',
                             opacity: (!selectedRows || selectedRows.size === 0) ? 0.6 : 1,
                             transition: 'all 0.2s'
@@ -227,12 +216,12 @@ const ComparisonTableControls = ({
                         disabled={!selectedRows || selectedRows.size === 0}
                         style={{
                             padding: '0.4rem 0.8rem',
-                            background: '#f3f4f6',
-                            color: '#374151',
-                            border: '1px solid #9ca3af',
+                            background: 'rgba(148, 163, 184, 0.15)',
+                            color: '#94a3b8',
+                            border: '1px solid rgba(148, 163, 184, 0.3)',
                             borderRadius: '6px',
                             fontSize: '0.8rem',
-                            fontWeight: '500',
+                            fontWeight: '600',
                             cursor: (!selectedRows || selectedRows.size === 0) ? 'not-allowed' : 'pointer',
                             opacity: (!selectedRows || selectedRows.size === 0) ? 0.6 : 1,
                             transition: 'all 0.2s'
@@ -247,18 +236,17 @@ const ComparisonTableControls = ({
                     onClick={onFinalJudgment}
                     disabled={selectedRows.size === 0}
                     style={{
-                        padding: '0.5rem 1rem',
-                        background: selectedRows.size > 0 ? '#10b981' : '#cbd5e1',
-                        color: '#ffffff',
+                        padding: '0.6rem 1.2rem',
+                        background: selectedRows.size > 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#2d2d3d',
+                        color: selectedRows.size > 0 ? '#ffffff' : '#4a4a5a',
                         border: 'none',
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         fontSize: '0.9rem',
-                        fontWeight: '600',
+                        fontWeight: '700',
                         cursor: selectedRows.size > 0 ? 'pointer' : 'not-allowed',
-                        transition: 'all 0.2s'
+                        transition: 'all 0.2s',
+                        boxShadow: selectedRows.size > 0 ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
                     }}
-                    onMouseOver={(e) => selectedRows.size > 0 && (e.target.style.background = '#059669')}
-                    onMouseOut={(e) => selectedRows.size > 0 && (e.target.style.background = '#10b981')}
                 >
                     ✔️ 선택 항목 최종 판단({selectedRows.size})
                 </button>

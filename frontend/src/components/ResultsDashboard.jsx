@@ -21,7 +21,7 @@ const ResultsDashboard = ({ project }) => {
     const loadDashboard = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/step4/run`);
+            const response = await fetch(`/api/projects/${project.id}/step4/run`);
             const data = await response.json();
 
             if (data.status === 'success') {
@@ -38,7 +38,7 @@ const ResultsDashboard = ({ project }) => {
 
     const handleDownloadExcel = async () => {
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/step4/export`);
+            const response = await fetch(`/api/projects/${project.id}/step4/export`);
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -96,106 +96,142 @@ const ResultsDashboard = ({ project }) => {
 
     if (loading) {
         return (
-            <div className="dashboard-container">
-                <div className="dashboard-loading">
-                    <div className="spinner"></div>
-                    <p>대시보드 로딩 중...</p>
+            <div className="dp-card" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                <div style={{ textAlign: 'center', color: '#64748b' }}>
+                    <div className="spinner" style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #3498db', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
+                    <p>Loading Dashboard...</p>
+                    <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="dashboard-container">
-            <div className="dashboard-header">
-                <div className="header-title">
-                    <h1>📊 결과 대시보드</h1>
-                    <p className="project-name">프로젝트: {project?.name || project?.id}</p>
+        <div className="dp-card">
+            <div className="dp-dashboard-header" style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.5rem' }}>📊 Results Dashboard</h1>
+                    <p style={{ color: '#64748b' }}>Project: {project?.name || project?.id}</p>
                 </div>
-                <div className="header-actions">
-                    <button onClick={handleDownloadExcel} className="excel-btn">
-                        📥 엑셀 다운로드
+                <div className="dp-panel-controls" style={{ border: 'none', padding: 0, background: 'transparent' }}>
+                    <div className="dp-panel-group">
+                        <button onClick={handleDownloadExcel} className="dp-btn dp-btn-primary">
+                            📥 Download Excel
+                        </button>
+                        <button onClick={loadDashboard} className="dp-btn dp-btn-secondary">
+                            🔄 Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="workspace-content" style={{ padding: '1.5rem', height: 'calc(100vh - 180px)', overflow: 'auto' }}>
+                {/* Summary Cards */}
+                <div className="dp-summary-bar" style={{ marginBottom: '1.5rem', width: '100%', justifyContent: 'space-around' }}>
+                    <div className="dp-summary-item">
+                        <span className="dp-summary-label">Total</span>
+                        <span className="dp-summary-value">{summary?.total || 0}</span>
+                    </div>
+                    <div className="dp-summary-divider"></div>
+                    <div className="dp-summary-item match">
+                        <span className="dp-summary-label">Matched</span>
+                        <span className="dp-summary-value">{summary?.matched || 0}</span>
+                        <span className="dp-summary-sub" style={{ fontSize: '0.8rem', color: '#64748b', marginLeft: '0.5rem' }}>
+                            ({summary?.total ? ((summary.matched / summary.total) * 100).toFixed(1) : 0}%)
+                        </span>
+                    </div>
+                    <div className="dp-summary-divider"></div>
+                    <div className="dp-summary-item mismatch">
+                        <span className="dp-summary-label">Mismatch</span>
+                        <span className="dp-summary-value">{summary?.mismatched || 0}</span>
+                        <span className="dp-summary-sub" style={{ fontSize: '0.8rem', color: '#64748b', marginLeft: '0.5rem' }}>
+                            ({summary?.total ? ((summary.mismatched / summary.total) * 100).toFixed(1) : 0}%)
+                        </span>
+                    </div>
+                    <div className="dp-summary-divider"></div>
+                    <div className="dp-summary-item pending">
+                        <span className="dp-summary-label">Review</span>
+                        <span className="dp-summary-value">{summary?.missing || 0}</span>
+                        <span className="dp-summary-sub" style={{ fontSize: '0.8rem', color: '#64748b', marginLeft: '0.5rem' }}>
+                            ({summary?.total ? ((summary.missing / summary.total) * 100).toFixed(1) : 0}%)
+                        </span>
+                    </div>
+                </div>
+
+                {/* Filter Buttons */}
+                <div className="dp-tabs" style={{ marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '1rem' }}>
+                    <button
+                        className={`dp-tab ${filter === 'all' ? 'active' : ''}`}
+                        onClick={() => setFilter('all')}
+                        style={{
+                            padding: '0.75rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            borderBottom: filter === 'all' ? '2px solid #2563eb' : '2px solid transparent',
+                            color: filter === 'all' ? '#2563eb' : '#64748b',
+                            fontWeight: filter === 'all' ? '600' : '500',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        All ({results.length})
                     </button>
-                    <button onClick={loadDashboard} className="refresh-btn">
-                        🔄 새로고침
+                    <button
+                        className={`dp-tab ${filter === 'match' ? 'active' : ''}`}
+                        onClick={() => setFilter('match')}
+                        style={{
+                            padding: '0.75rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            borderBottom: filter === 'match' ? '2px solid #2563eb' : '2px solid transparent',
+                            color: filter === 'match' ? '#2563eb' : '#64748b',
+                            fontWeight: filter === 'match' ? '600' : '500',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        ✅ Matched ({summary?.matched || 0})
+                    </button>
+                    <button
+                        className={`dp-tab ${filter === 'mismatch' ? 'active' : ''}`}
+                        onClick={() => setFilter('mismatch')}
+                        style={{
+                            padding: '0.75rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            borderBottom: filter === 'mismatch' ? '2px solid #2563eb' : '2px solid transparent',
+                            color: filter === 'mismatch' ? '#2563eb' : '#64748b',
+                            fontWeight: filter === 'mismatch' ? '600' : '500',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        ⚠️ Mismatch ({summary?.mismatched || 0})
+                    </button>
+                    <button
+                        className={`dp-tab ${filter === 'missing' ? 'active' : ''}`}
+                        onClick={() => setFilter('missing')}
+                        style={{
+                            padding: '0.75rem 1rem',
+                            border: 'none',
+                            background: 'transparent',
+                            borderBottom: filter === 'missing' ? '2px solid #2563eb' : '2px solid transparent',
+                            color: filter === 'missing' ? '#2563eb' : '#64748b',
+                            fontWeight: filter === 'missing' ? '600' : '500',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        ❌ Review ({summary?.missing || 0})
                     </button>
                 </div>
-            </div>
 
-            {/* Summary Cards */}
-            <div className="summary-cards">
-                <div className="summary-card total">
-                    <div className="card-icon">📋</div>
-                    <div className="card-content">
-                        <h3>전체 전표</h3>
-                        <p className="card-value">{summary?.total || 0}</p>
-                    </div>
-                </div>
-
-                <div className="summary-card match">
-                    <div className="card-icon">✅</div>
-                    <div className="card-content">
-                        <h3>일치 (PASS)</h3>
-                        <p className="card-value">{summary?.matched || 0}</p>
-                        <p className="card-percentage">
-                            {summary?.total ? ((summary.matched / summary.total) * 100).toFixed(1) : 0}%
-                        </p>
-                    </div>
-                </div>
-
-                <div className="summary-card mismatch">
-                    <div className="card-icon">⚠️</div>
-                    <div className="card-content">
-                        <h3>불일치 (FAIL)</h3>
-                        <p className="card-value">{summary?.mismatched || 0}</p>
-                        <p className="card-percentage">
-                            {summary?.total ? ((summary.mismatched / summary.total) * 100).toFixed(1) : 0}%
-                        </p>
-                    </div>
-                </div>
-
-                <div className="summary-card missing">
-                    <div className="card-icon">❌</div>
-                    <div className="card-content">
-                        <h3>확인 필요 (WARN/MISSING)</h3>
-                        <p className="card-value">{summary?.missing || 0}</p>
-                        <p className="card-percentage">
-                            {summary?.total ? ((summary.missing / summary.total) * 100).toFixed(1) : 0}%
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Filter Buttons */}
-            <div className="filter-controls">
-                <button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>
-                    전체 ({results.length})
-                </button>
-                <button className={filter === 'match' ? 'active' : ''} onClick={() => setFilter('match')}>
-                    ✅ 일치 ({summary?.matched || 0})
-                </button>
-                <button className={filter === 'mismatch' ? 'active' : ''} onClick={() => setFilter('mismatch')}>
-                    ⚠️ 불일치 ({summary?.mismatched || 0})
-                </button>
-                <button className={filter === 'missing' ? 'active' : ''} onClick={() => setFilter('missing')}>
-                    ❌ 확인필요 ({summary?.missing || 0})
-                </button>
-            </div>
-
-            {/* Results Table */}
-            <div className="results-section">
-                <h2>상세 결과 ({filteredResults.length})</h2>
-                <div className="results-table-wrapper">
-                    <table className="results-table">
+                {/* Results Table */}
+                <div className="dp-table-wrapper">
+                    <table className="dp-table dp-table-bordered">
                         <thead>
                             <tr>
-                                {/* Fixed Headers */}
-                                <th className="sticky-col col-1">최종판단</th>
-                                <th className="sticky-col col-2">날짜</th>
-                                <th className="sticky-col col-3">금액</th>
-                                <th className="sticky-col col-4">인코텀즈</th>
-                                <th className="sticky-col col-5">수량</th>
-                                {/* Scrollable Step 1 Headers */}
+                                <th style={{ width: '80px', textAlign: 'center' }}>Status</th>
+                                <th style={{ width: '100px' }}>Date</th>
+                                <th style={{ width: '100px' }}>Amount</th>
+                                <th style={{ width: '100px' }}>Incoterms</th>
+                                <th style={{ width: '100px' }}>Quantity</th>
                                 {step1Columns.map(col => (
                                     <th key={col}>{col}</th>
                                 ))}
@@ -204,33 +240,30 @@ const ResultsDashboard = ({ project }) => {
                         <tbody>
                             {filteredResults.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5 + step1Columns.length} style={{ textAlign: 'center', padding: '40px' }}>
-                                        데이터가 없습니다
+                                    <td colSpan={5 + step1Columns.length} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                                        No data found
                                     </td>
                                 </tr>
                             ) : (
                                 filteredResults.map((item, idx) => (
                                     <tr key={idx}>
-                                        {/* Fixed Columns */}
-                                        <td className="sticky-col col-1" style={{ textAlign: 'center' }}>
+                                        <td style={{ textAlign: 'center' }}>
                                             <span title={getStatusText(item.final_judgment)} style={{ fontSize: '1.2rem' }}>
                                                 {getStatusIcon(item.final_judgment)}
                                             </span>
                                         </td>
-                                        <td className={`sticky-col col-2 ${item.date_status === '불일치' ? 'text-red' : 'text-green'}`}>
+                                        <td className={item.date_status === '불일치' ? 'dp-text-danger' : 'dp-text-success'}>
                                             {item.date_status}
                                         </td>
-                                        <td className={`sticky-col col-3 ${item.amount_status === '불일치' ? 'text-red' : 'text-green'}`}>
+                                        <td className={item.amount_status === '불일치' ? 'dp-text-danger' : 'dp-text-success'}>
                                             {item.amount_status}
                                         </td>
-                                        <td className={`sticky-col col-4 ${item.incoterms_status === '불일치' ? 'text-red' : 'text-green'}`}>
+                                        <td className={item.incoterms_status === '불일치' ? 'dp-text-danger' : 'dp-text-success'}>
                                             {item.incoterms_status}
                                         </td>
-                                        <td className={`sticky-col col-5 ${item.quantity_status === '불일치' ? 'text-red' : 'text-green'}`}>
+                                        <td className={item.quantity_status === '불일치' ? 'dp-text-danger' : 'dp-text-success'}>
                                             {item.quantity_status}
                                         </td>
-
-                                        {/* Scrollable Step 1 Data */}
                                         {step1Columns.map(col => (
                                             <td key={col}>{item[col]}</td>
                                         ))}

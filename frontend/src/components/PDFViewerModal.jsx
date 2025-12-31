@@ -108,6 +108,20 @@ const PDFViewerModal = ({ isOpen, onClose, files = [], title, onDelete, highligh
         };
     };
 
+    const handlePopOut = () => {
+        // Store viewer state in localStorage
+        const viewerState = {
+            files,
+            title,
+            highlightCoordinates
+        };
+        localStorage.setItem('pdfViewerPopoutState', JSON.stringify(viewerState));
+
+        // Open new window with viewer mode
+        const popoutUrl = `${window.location.origin}${window.location.pathname}?mode=viewer`;
+        window.open(popoutUrl, '_blank', 'width=1200,height=900,resizable=yes,scrollbars=yes');
+    };
+
     return (
         <div className="pdf-modal-overlay" onClick={onClose}>
             <div
@@ -125,7 +139,7 @@ const PDFViewerModal = ({ isOpen, onClose, files = [], title, onDelete, highligh
                 >
                     <div className="header-title">
                         <h3>{title}</h3>
-                        {currentFile && <span className="current-file-name"> - {currentFile.filename}</span>}
+                        {currentFile && <span className="current-file-name">- {currentFile.filename}</span>}
                     </div>
                     <div className="header-controls">
                         <button disabled={pageNumber <= 1} onClick={() => setPageNumber(p => p - 1)}>&lt;</button>
@@ -135,6 +149,8 @@ const PDFViewerModal = ({ isOpen, onClose, files = [], title, onDelete, highligh
                         <button onClick={() => setScale(s => Math.max(0.5, s - 0.1))}>-</button>
                         <span>{Math.round(scale * 100)}%</span>
                         <button onClick={() => setScale(s => Math.min(3.0, s + 0.1))}>+</button>
+                        <span style={{ margin: '0 10px' }}>|</span>
+                        <button onClick={handlePopOut} title="새 창으로 열기 (듀얼 모니터)">↗️</button>
                         <button className="close-btn" onClick={onClose}>&times;</button>
                     </div>
                 </div>

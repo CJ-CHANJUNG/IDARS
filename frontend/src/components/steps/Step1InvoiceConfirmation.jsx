@@ -3,6 +3,7 @@ import { useProject } from '../../context/ProjectContext';
 import LedgerTable from '../LedgerTable';
 import ColumnSelector from '../ColumnSelector';
 import DataImportModal from '../DataImportModal';
+import ProgressBar from '../ProgressBar';
 
 const Step1InvoiceConfirmation = () => {
     const {
@@ -20,6 +21,8 @@ const Step1InvoiceConfirmation = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importModalTab, setImportModalTab] = useState('local');
+    const [showProgress, setShowProgress] = useState(false);
+    const [progressData, setProgressData] = useState({ current: 0, total: 0, message: '', status: '' });
     const tableRef = useRef(null);
 
     // --- Handlers ---
@@ -73,7 +76,7 @@ const Step1InvoiceConfirmation = () => {
         if (!project) return;
         setIsLoading(true);
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/save`, {
+            const response = await fetch(`/api/projects/${project.id}/save`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -109,7 +112,7 @@ const Step1InvoiceConfirmation = () => {
 
         setIsLoading(true);
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/confirm`, {
+            const response = await fetch(`/api/projects/${project.id}/confirm`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -146,7 +149,7 @@ const Step1InvoiceConfirmation = () => {
 
         setIsLoading(true);
         try {
-            const response = await fetch(`http://127.0.0.1:5000/api/projects/${project.id}/unconfirm`, {
+            const response = await fetch(`/api/projects/${project.id}/unconfirm`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ step: 1 })
@@ -176,11 +179,19 @@ const Step1InvoiceConfirmation = () => {
         if (project?.id) formData.append('projectId', project.id);
 
         setIsLoading(true);
+        setShowProgress(true);
+        setProgressData({ current: 0, total: 100, message: 'Uploading file...', status: 'running' });
+
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/upload', {
+            // Simulate progress for better UX
+            setProgressData({ current: 30, total: 100, message: 'Uploading file...', status: 'running' });
+
+            const response = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData,
             });
+
+            setProgressData({ current: 70, total: 100, message: 'Processing data...', status: 'running' });
             const result = await response.json();
 
             if (response.ok && Array.isArray(result)) {
@@ -190,13 +201,25 @@ const Step1InvoiceConfirmation = () => {
                     const initialColumns = DEFAULT_COLUMNS.filter(col => columns.includes(col));
                     setVisibleColumns(initialColumns.length > 0 ? initialColumns : columns);
                 }
-                alert("파일 업로드 성공! " + result.length + "개의 행을 로드했습니다.");
+                setProgressData({ current: 100, total: 100, message: 'Upload complete!', status: 'completed' });
+                setTimeout(() => {
+                    alert("파일 업로드 성공! " + result.length + "개의 행을 로드했습니다.");
+                    setShowProgress(false);
+                }, 500);
             } else {
-                alert("Failed to load file: " + (result.error || "Unknown error"));
+                setProgressData({ current: 100, total: 100, message: 'Upload failed', status: 'error' });
+                setTimeout(() => {
+                    alert("Failed to load file: " + (result.error || "Unknown error"));
+                    setShowProgress(false);
+                }, 1000);
             }
         } catch (error) {
             console.error('[FILE UPLOAD] Error:', error);
-            alert("Error uploading file");
+            setProgressData({ current: 100, total: 100, message: 'Error uploading file', status: 'error' });
+            setTimeout(() => {
+                alert("Error uploading file");
+                setShowProgress(false);
+            }, 1000);
         } finally {
             setIsLoading(false);
             setIsImportModalOpen(false);
@@ -209,8 +232,14 @@ const Step1InvoiceConfirmation = () => {
             return;
         }
         setIsLoading(true);
+        setShowProgress(true);
+        setProgressData({ current: 0, total: 100, message: 'Connecting to SAP...', status: 'running' });
+
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/sap/download', {
+            // Simulate progress
+            setTimeout(() => setProgressData({ current: 30, total: 100, message: 'Fetching data...', status: 'running' }), 500);
+
+            const response = await fetch('/api/sap/download', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -219,6 +248,8 @@ const Step1InvoiceConfirmation = () => {
                     dateTo: config.dateTo
                 })
             });
+
+            setProgressData({ current: 80, total: 100, message: 'Processing response...', status: 'running' });
             const result = await response.json();
 
             if (response.ok && Array.isArray(result)) {
@@ -228,31 +259,64 @@ const Step1InvoiceConfirmation = () => {
                     const initialColumns = DEFAULT_COLUMNS.filter(col => columns.includes(col));
                     setVisibleColumns(initialColumns.length > 0 ? initialColumns : columns);
                 }
-                alert('SAP 데이터 다운로드 및 로드 완료: ' + result.length + '개의 행');
+                setProgressData({ current: 100, total: 100, message: 'Download complete!', status: 'completed' });
+                setTimeout(() => {
+                    alert('SAP 데이터 다운로드 및 로드 완료: ' + result.length + '개의 행');
+                    setShowProgress(false);
+                }, 500);
             } else {
-                alert("SAP 데이터 다운로드 실패: " + (result.error || "Unknown error"));
+                setProgressData({ current: 100, total: 100, message: 'Download failed', status: 'error' });
+                setTimeout(() => {
+                    alert("SAP 데이터 다운로드 실패: " + (result.error || "Unknown error"));
+                    setShowProgress(false);
+                }, 1000);
             }
         } catch (error) {
             console.error('[SAP FETCH] Error:', error);
-            alert("SAP 데이터 요청 중 오류가 발생했습니다.");
+            setProgressData({ current: 100, total: 100, message: 'Connection error', status: 'error' });
+            setTimeout(() => {
+                alert("SAP 데이터 요청 중 오류가 발생했습니다.");
+                setShowProgress(false);
+            }, 1000);
         } finally {
             setIsLoading(false);
             setIsImportModalOpen(false);
         }
     };
 
+    // --- Number Formatting Helper ---
+    const formatNumber = (value) => {
+        if (value === undefined || value === null || value === '') return '-';
+        const num = parseFloat(value.toString().replace(/,/g, ''));
+        if (isNaN(num)) return value;
+        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
     return (
-        <>
-            <div className="tabs">
+        <div className="dp-card">
+            {showProgress && (
+                <ProgressBar
+                    progress={progressData}
+                />
+            )}
+            <div className="dp-dashboard-header" style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.25rem' }}>Step 1: Invoice Confirmation</h1>
+                    <p style={{ color: '#64748b', fontSize: '0.875rem', margin: 0 }}>Review and confirm imported invoice data.</p>
+                </div>
+            </div>
+            <div className="preview-tabs" style={{ padding: '0 1.5rem', marginTop: '0', borderBottom: 'none' }}>
                 <button
-                    className={`tab-button ${activeTab === 'imported' ? 'active' : ''}`}
+                    className={`preview-tab ${activeTab === 'imported' ? 'active' : ''}`}
                     onClick={() => setActiveTab('imported')}
+                    style={{ padding: '0.75rem 1rem', fontSize: '0.9rem' }}
                 >
                     Imported Data ({ledgerData.length})
                 </button>
                 <button
-                    className={`tab-button ${activeTab === 'confirmed' ? 'active' : ''}`}
+                    className={`preview-tab ${activeTab === 'confirmed' ? 'active' : ''}`}
                     onClick={() => setActiveTab('confirmed')}
+                    style={{ padding: '0.75rem 1rem', fontSize: '0.9rem' }}
                 >
                     Confirmed Data ({confirmedData.length})
                 </button>
@@ -261,34 +325,23 @@ const Step1InvoiceConfirmation = () => {
             <div className="tab-content">
                 {activeTab === 'imported' && (
                     <>
-                        <div className="table-toolbar" style={{
-                            padding: '12px',
-                            borderBottom: '1px solid #e0e0e0',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: '12px',
-                            backgroundColor: '#f5f5f5',
-                            flexWrap: 'wrap'
-                        }}>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <label style={{
-                                    display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
-                                    padding: '6px 12px', backgroundColor: isEditMode ? '#fff3cd' : 'white',
-                                    border: '1px solid #ddd', borderRadius: '4px'
-                                }}>
-                                    <input type="checkbox" checked={isEditMode} onChange={(e) => setIsEditMode(e.target.checked)} />
-                                    <span>Edit Mode</span>
-                                </label>
+                        <div className="dp-toolbar" style={{ padding: '0.5rem 1.5rem' }}>
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <button
+                                    className={`dp-toggle ${isEditMode ? 'active' : ''}`}
+                                    onClick={() => setIsEditMode(!isEditMode)}
+                                >
+                                    {isEditMode ? '✏️ Edit Mode On' : '✏️ Edit Mode'}
+                                </button>
 
-                                <button className="action-button" onClick={() => setIsImportModalOpen(true)}>
-                                    📥 데이터 가져오기
+                                <button className="dp-btn dp-btn-secondary" onClick={() => setIsImportModalOpen(true)}>
+                                    📥 Import Data
                                 </button>
 
                                 {isEditMode && (
                                     <>
-                                        <button className="action-button" onClick={handleAddRow}>➕ 행 추가</button>
-                                        <button className="action-button" onClick={handleDeleteSelected}>🗑️ 선택 삭제</button>
+                                        <button className="dp-btn dp-btn-secondary" onClick={handleAddRow}>➕ Add Row</button>
+                                        <button className="dp-btn dp-btn-secondary" onClick={handleDeleteSelected}>🗑️ Delete Selected</button>
                                     </>
                                 )}
 
@@ -304,38 +357,36 @@ const Step1InvoiceConfirmation = () => {
                             </div>
 
                             {ledgerData.length > 0 && (
-                                <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
                                     <button
-                                        className="action-button"
+                                        className="dp-btn dp-btn-secondary"
                                         onClick={handleSaveProgress}
                                         disabled={isLoading || (project?.steps?.step2?.status === 'completed')}
                                         title={project?.steps?.step2?.status === 'completed' ? "Step 2가 확정되어 수정할 수 없습니다." : "임시 저장"}
                                     >
-                                        💾 임시 저장
+                                        💾 Save Draft
                                     </button>
 
                                     {project?.steps?.step1?.status === 'completed' ? (
                                         <button
-                                            className="action-button"
+                                            className="dp-btn dp-btn-danger"
                                             onClick={handleUnconfirm}
                                             disabled={isLoading || (project?.steps?.step2?.status === 'completed')}
-                                            style={{ backgroundColor: '#ef4444', color: 'white' }}
                                             title={project?.steps?.step2?.status === 'completed' ? "Step 2가 확정되어 취소할 수 없습니다." : "확정 취소"}
                                         >
-                                            ↩️ 확정 취소
+                                            ↩️ Unconfirm
                                         </button>
                                     ) : (
                                         <button
-                                            className="action-button primary"
+                                            className="dp-btn dp-btn-primary"
                                             onClick={handleConfirm}
                                             disabled={isLoading || (project?.steps?.step2?.status === 'completed')}
                                             style={{
-                                                backgroundColor: '#4CAF50', color: 'white',
                                                 opacity: (project?.steps?.step2?.status === 'completed') ? 0.5 : 1
                                             }}
                                             title={project?.steps?.step2?.status === 'completed' ? "Step 2가 확정되어 수정할 수 없습니다." : "전표 확정"}
                                         >
-                                            ✅ 전표 확정
+                                            ✅ Confirm Invoices
                                         </button>
                                     )}
                                 </div>
@@ -365,8 +416,8 @@ const Step1InvoiceConfirmation = () => {
                                 isEditMode={false}
                             />
                         ) : (
-                            <div className="empty-state">
-                                <p>확정된 데이터가 없습니다.</p>
+                            <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
+                                <p>No confirmed data available.</p>
                             </div>
                         )}
                     </>
@@ -382,7 +433,7 @@ const Step1InvoiceConfirmation = () => {
                 project={project}
                 currentStep="step1"
             />
-        </>
+        </div>
     );
 };
 

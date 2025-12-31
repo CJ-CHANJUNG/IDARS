@@ -41,12 +41,12 @@ const ComparisonTableRow = ({
     const isIncotermsCorrected = userCorrections[billingDoc]?.incoterms;
 
     const cellStyle = {
-        padding: '0.3rem 0.4rem',
-        border: '1px solid #e2e8f0',
+        padding: '0.4rem 0.5rem',
+        border: '1px solid #2a2a3a',
         textAlign: 'center',
         fontSize: '0.8rem',
-        color: '#1e293b',
-        background: 'white'
+        color: '#d0d0d0',
+        background: '#1f1f2f'
     };
 
     const renderEditableCell = (field, value, isCorrected, fieldResult, isAmount = false) => {
@@ -57,7 +57,7 @@ const ComparisonTableRow = ({
                 style={{
                     ...cellStyle,
                     cursor: isEditing ? 'text' : 'pointer',
-                    background: isCorrected ? '#dbeafe' : (fieldResult?.match ? '#d1fae5' : '#fee2e2')
+                    background: isCorrected ? 'rgba(59, 130, 246, 0.2)' : (fieldResult?.match ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)')
                 }}
                 onClick={() => {
                     let coordinates = null;
@@ -90,7 +90,7 @@ const ComparisonTableRow = ({
                 ) : (
                     <>
                         {renderValue(value, isAmount) || '-'} {getConfidenceBadge(fieldResult?.confidence)}
-                        {isCorrected && <span style={{ marginLeft: '0.2rem', color: '#1e40af' }}>✏️</span>}
+                        {isCorrected && <span style={{ marginLeft: '0.2rem', color: '#60a5fa' }}>✏️</span>}
                     </>
                 )}
             </td>
@@ -99,8 +99,8 @@ const ComparisonTableRow = ({
 
     return (
         <tr style={{
-            borderBottom: '1px solid #e2e8f0',
-            background: isSelected ? '#fef3c7' : 'white'
+            borderBottom: '1px solid #2a2a3a',
+            background: isSelected ? 'rgba(139, 92, 246, 0.1)' : '#1f1f2f'
         }}>
             <td style={cellStyle}>
                 <input
@@ -121,9 +121,11 @@ const ComparisonTableRow = ({
                         borderRadius: '4px',
                         fontSize: '0.75rem',
                         cursor: 'pointer',
-                        background: finalJudgments[billingDoc] === 'complete_match' ? '#d1fae5' :
-                            finalJudgments[billingDoc] === 'partial_error' ? '#fef3c7' :
-                                finalJudgments[billingDoc] === 'review_required' ? '#fee2e2' : 'white'
+                        background: finalJudgments[billingDoc] === 'complete_match' ? 'rgba(16, 185, 129, 0.2)' :
+                            finalJudgments[billingDoc] === 'partial_error' ? 'rgba(245, 158, 11, 0.2)' :
+                                finalJudgments[billingDoc] === 'review_required' ? 'rgba(239, 68, 68, 0.2)' : '#2d2d3d',
+                        color: '#e0e0e0',
+                        border: '1px solid #3a3a4a'
                     }}
                 >
                     <option value="">-</option>
@@ -132,7 +134,7 @@ const ComparisonTableRow = ({
                     <option value="review_required">❌</option>
                 </select>
             </td>
-            <td style={{ ...cellStyle, fontWeight: '600', background: '#f8fafc' }}>{billingDoc}</td>
+            <td style={{ ...cellStyle, fontWeight: '700', background: '#2d2d3d', color: '#ffffff' }}>{billingDoc}</td>
 
             {/* 전표 데이터 */}
             <td style={cellStyle}>{step1.shipment_date || step1.date || '-'}</td>
@@ -163,21 +165,21 @@ const ComparisonTableRow = ({
             <td style={{
                 ...cellStyle,
                 cursor: 'pointer',
-                background: blResults.bl_net_weight?.match ? '#d1fae5' : (blResults.bl_net_weight?.match === false ? '#fee2e2' : cellStyle.background)
+                background: blResults.bl_net_weight?.match ? 'rgba(16, 185, 129, 0.15)' : (blResults.bl_net_weight?.match === false ? 'rgba(239, 68, 68, 0.15)' : cellStyle.background)
             }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading', 'net_weight', blData.net_weight_coordinates)}>
                 {renderValue(blData.net_weight || blData.quantity) || '-'}
             </td>
             <td style={{
                 ...cellStyle,
                 cursor: 'pointer',
-                background: blResults.bl_on_board_date?.match ? '#d1fae5' : (blResults.bl_on_board_date?.match === false ? '#fee2e2' : cellStyle.background)
+                background: blResults.bl_on_board_date?.match ? 'rgba(16, 185, 129, 0.15)' : (blResults.bl_on_board_date?.match === false ? 'rgba(239, 68, 68, 0.15)' : cellStyle.background)
             }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading')}>
                 {renderValue(blData.on_board_date) || '-'}
             </td>
             <td style={{
                 ...cellStyle,
                 cursor: 'pointer',
-                background: blResults.bl_freight_terms?.match ? '#d1fae5' : (blResults.bl_freight_terms?.match === false ? '#fff7ed' : cellStyle.background)
+                background: blResults.bl_freight_terms?.match ? 'rgba(16, 185, 129, 0.15)' : (blResults.bl_freight_terms?.match === false ? 'rgba(245, 158, 11, 0.15)' : cellStyle.background)
             }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading')}>
                 {renderValue(blData.freight_payment_terms || blData.incoterms) || '-'}
             </td>
@@ -192,14 +194,14 @@ const ComparisonTableRow = ({
                     <td style={{ ...cellStyle, cursor: 'pointer' }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading')}>{blData.port_of_discharge || '-'}</td>
                     <td style={{ ...cellStyle, cursor: 'pointer' }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading')}>{blData.shipper || '-'}</td>
                     <td style={{ ...cellStyle, cursor: 'pointer' }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading')}>{blData.consignee || '-'}</td>
-                    <td style={{ ...cellStyle, cursor: 'pointer', background: '#f0f9ff' }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading')}>{renderValue(blData.net_weight) || '-'}</td>
+                    <td style={{ ...cellStyle, cursor: 'pointer', background: 'rgba(59, 130, 246, 0.1)' }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading')}>{renderValue(blData.net_weight) || '-'}</td>
                     <td style={{ ...cellStyle, cursor: 'pointer' }} onClick={() => onCellClick(row.billing_document, 'Bill_of_Lading')}>{renderValue(blData.gross_weight) || '-'}</td>
                 </>
             )}
 
             <td style={{ ...cellStyle, fontSize: '0.7rem', fontFamily: 'monospace', whiteSpace: 'normal' }}>
                 <div>{apiUsage.input || 0}/{apiUsage.output || 0}</div>
-                <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '2px' }}>
+                <div style={{ fontSize: '0.65rem', color: '#60a5fa', marginTop: '2px', fontWeight: '600' }}>
                     ${((apiUsage.input / 1000000 * 0.075) + (apiUsage.output / 1000000 * 0.30)).toFixed(4)}
                 </div>
             </td>

@@ -17,40 +17,44 @@ const ComparisonTableHeader = ({
         marginTop: '0.25rem',
         padding: '0.2rem 0.3rem',
         fontSize: '0.7rem',
-        border: '1px solid #cbd5e1',
+        border: '1px solid #3a3a4a',
         borderRadius: '4px',
         width: '100%',
-        maxWidth: '100px'
+        maxWidth: '100px',
+        background: '#2d2d3d',
+        color: '#e0e0e0'
     };
 
     const filterInputStyle = {
         marginTop: '0.25rem',
         padding: '0.2rem 0.3rem',
         fontSize: '0.7rem',
-        border: '1px solid #cbd5e1',
+        border: '1px solid #3a3a4a',
         borderRadius: '4px',
         width: '100%',
-        maxWidth: '100px'
+        maxWidth: '100px',
+        background: '#2d2d3d',
+        color: '#e0e0e0'
     };
 
     const headerStyle = {
-        padding: '0.4rem 0.3rem',
+        padding: '0.6rem 0.4rem',
         textAlign: 'center',
-        border: '1px solid #cbd5e1',
-        fontWeight: '600',
-        fontSize: '0.75rem',
-        color: '#475569',
-        background: '#f1f5f9'
+        border: '1px solid #3a3a4a',
+        fontWeight: '700',
+        fontSize: '0.8rem',
+        color: '#ffffff',
+        background: '#2d2d3d'
     };
 
     const subHeaderStyle = {
-        padding: '0.4rem 0.3rem',
+        padding: '0.5rem 0.3rem',
         textAlign: 'center',
-        border: '1px solid #cbd5e1',
-        fontWeight: '500',
-        fontSize: '0.7rem',
-        color: '#64748b',
-        background: '#f8fafc'
+        border: '1px solid #3a3a4a',
+        fontWeight: '600',
+        fontSize: '0.75rem',
+        color: '#a0a0b0',
+        background: '#1f1f2f'
     };
 
     return (
@@ -92,7 +96,7 @@ const ComparisonTableHeader = ({
             <thead style={{
                 position: 'sticky',
                 top: 0,
-                background: '#f8fafc',
+                background: '#2d2d3d',
                 zIndex: 10
             }}>
                 <tr>
@@ -131,9 +135,9 @@ const ComparisonTableHeader = ({
                             onClick={(e) => e.stopPropagation()}
                         />
                     </th>
-                    <th colSpan="5" style={{ ...headerStyle, background: '#f1f5f9', color: '#475569' }}>전표 데이터</th>
-                    <th colSpan={invoiceColspan} style={{ ...headerStyle, background: '#fdf2f8', color: '#db2777' }}>Invoice 추출</th>
-                    <th colSpan={blColspan} style={{ ...headerStyle, background: '#eff6ff', color: '#2563eb' }}>BL 추출</th>
+                    <th colSpan="5" style={{ ...headerStyle, background: '#2d2d3d', color: '#ffffff' }}>전표 데이터</th>
+                    <th colSpan={invoiceColspan} style={{ ...headerStyle, background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6' }}>Invoice 추출</th>
+                    <th colSpan={blColspan} style={{ ...headerStyle, background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' }}>BL 추출</th>
                     <th rowSpan="2" style={headerStyle}>토큰</th>
                 </tr>
                 <tr>

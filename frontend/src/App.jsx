@@ -8,7 +8,9 @@ import Step2EvidenceCollection from './components/steps/Step2EvidenceCollection'
 import Step3DataExtraction from './components/steps/Step3DataExtraction'
 import ResultsDashboard from './components/ResultsDashboard'
 import Settings from './components/Settings'
+import DesignPreview from './components/DesignPreview'
 
+import './components/DesignPreview.css'
 import './App.css'
 
 function AppContent() {
@@ -27,7 +29,7 @@ function AppContent() {
   const handleStartProject = async (name, source) => {
     console.log("Starting project:", name, source);
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/projects', {
+      const response = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
@@ -146,6 +148,9 @@ function AppContent() {
               {sidebarView === 'settings' && (
                 <Settings onSave={(settings) => console.log('Settings saved:', settings)} />
               )}
+
+              {/* Design Preview */}
+              {sidebarView === 'preview' && <DesignPreview />}
             </div>
           </>
         )}

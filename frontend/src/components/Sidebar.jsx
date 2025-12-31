@@ -6,6 +6,7 @@ const MENU_ITEMS = [
     { id: 'step2', icon: '📂', label: 'Step 2: 증빙 수집', subLabel: 'Evidence Collection' },
     { id: 'step3', icon: '🔍', label: 'Step 3: 데이터 추출', subLabel: 'Data Extraction' },
     { id: 'dashboard', icon: '📊', label: '결과 대시보드', subLabel: 'Results Dashboard' },
+    { id: 'preview', icon: '🎨', label: '디자인 프리뷰', subLabel: 'Design Preview' },
 ];
 
 const Sidebar = ({ onGoHome, activeId, onMenuClick }) => {

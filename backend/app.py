@@ -570,13 +570,7 @@ def get_split_progress(project_id):
         return jsonify({"status": "not_found"}), 404
     return jsonify(progress)
 
-@app.route('/api/step3/progress/<project_id>', methods=['GET'])
-def get_extraction_progress(project_id):
-    """Get Step 3 extraction progress"""
-    progress = extraction_progress.get(project_id)
-    if not progress:
-        return jsonify({"status": "not_found"}), 404
-    return jsonify(progress)
+
 
 @app.route('/api/projects/<project_id>/confirm-step2', methods=['POST'])
 def confirm_step2(project_id):
@@ -1571,6 +1565,23 @@ def export_step4_results(project_id):
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+        
+
+
+@app.route('/api/projects/<project_id>/extraction-progress', methods=['GET'])
+def get_extraction_progress(project_id):
+    """
+    Get the current progress of the extraction process
+    """
+    progress = extraction_progress.get(project_id)
+    if not progress:
+        return jsonify({
+            "status": "idle",
+            "current": 0,
+            "total": 0,
+            "message": "대기 중..."
+        })
+    return jsonify(progress)
 
 if __name__ == '__main__':
     if not os.environ.get("WERKZEUG_RUN_MAIN"):

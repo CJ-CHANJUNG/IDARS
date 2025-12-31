@@ -158,6 +158,24 @@ class SmartExtractionEngine:
         except Exception as e:
             print(f"⚠️ DataNormalizer 초기화 실패: {e}")
             self.data_normalizer = None
+
+        # ✅ TextPreprocessor 초기화
+        try:
+            from Modules.Parser.text_preprocessor import TextPreprocessor
+            self.text_preprocessor = TextPreprocessor()
+            print("✅ TextPreprocessor 초기화 완료")
+        except Exception as e:
+            print(f"⚠️ TextPreprocessor 초기화 실패: {e}")
+            self.text_preprocessor = None
+            
+        # ✅ CombinationFinder 초기화
+        try:
+            from Modules.Parser.combination_finder import CombinationFinder
+            self.combination_finder = CombinationFinder()
+            print("✅ CombinationFinder 초기화 완료")
+        except Exception as e:
+            print(f"⚠️ CombinationFinder 초기화 실패: {e}")
+            self.combination_finder = None
     
     
     def detect_document_type(self, pdf_path: str, page_num: int) -> Tuple[str, str]:
@@ -220,46 +238,7 @@ class SmartExtractionEngine:
             return "UNKNOWN", ""
     
     
-    def quick_ocr_for_keyword(self, pdf_path: str, page_num: int) -> Tuple[str, str]:
-        """
-        저해상도 OCR + Regex 패턴 검출 (1초)
-        스캔 문서의 타입 빠르게 판별
-        """
-        try:
-            doc = fitz.open(pdf_path)
-            page = doc[page_num]
-            
-            # 저해상도 이미지 생성
-            pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5))
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            doc.close()
-            
-            # 빠른 OCR (첫 1000자)
-            text = pytesseract.image_to_string(img, config='--psm 3')[:1000]
-            
-            # 패턴 매칭
-            text_upper = text.upper()
-            best_type = None
-            best_conf = 0.0
-            
-            for doc_type, patterns in DOCUMENT_PATTERNS.items():
-                for pattern, score in patterns:
-                    if re.search(pattern, text_upper):
-                        if score > best_conf:
-                            best_conf = score
-                            best_type = doc_type
-            
-            if best_conf < 50:
-                return "UNKNOWN", text
-            
-            return best_type, text
-            text = pytesseract.image_to_string(img, lang='eng+kor')
-            
-            return text
-            
-        except Exception as e:
-            print(f"❌ 고품질 OCR 오류: {e}")
-            return ""
+
     def high_quality_ocr(self, pdf_path: str, page_num: int) -> str:
         """
         고품질 OCR (전체 페이지) - 스캔 문서용
@@ -329,6 +308,44 @@ class SmartExtractionEngine:
             else:
                 expected_fields_example[field['name']] = {"value": "추출된 값", "format": "text", "coordinates": [0, 0, 0, 0]}
         
+        # ✅ Text Preprocessing (Token Optimization)
+        if self.text_preprocessor:
+            print(f"   🧹 Preprocessing text... (Original: {len(ocr_text)} chars)")
+            ocr_text = self.text_preprocessor.preprocess(ocr_text, doc_type)
+            print(f"   ✨ Preprocessed: {len(ocr_text)} chars")
+
+        # ✅ N:1 Combination Finder (Python Logic)
+        combo_hint = ""
+        if self.combination_finder and expected_values:
+            # 1. Check Amount
+            exp_amount = expected_values.get('total_amount')
+            if exp_amount:
+                try:
+                    # Remove commas if string
+                    target_amt = float(str(exp_amount).replace(',', ''))
+                    combo = self.combination_finder.find_combination(ocr_text, target_amt)
+                    if combo:
+                        combo_str = " + ".join([f"{n:,.2f}" for n in combo])
+                        combo_hint += f"- 💡 Found combination for Amount: {combo_str} = {target_amt:,.2f}\n"
+                except:
+                    pass
+
+            # 2. Check Quantity
+            exp_qty = expected_values.get('total_quantity')
+            if exp_qty:
+                try:
+                    target_qty = float(str(exp_qty).replace(',', ''))
+                    combo = self.combination_finder.find_combination(ocr_text, target_qty)
+                    if combo:
+                        combo_str = " + ".join([f"{n:,.2f}" for n in combo])
+                        combo_hint += f"- 💡 Found combination for Quantity: {combo_str} = {target_qty:,.2f}\n"
+                except:
+                    pass
+        
+        if combo_hint:
+            hint_instruction += "\n**[N:1 MATCHING HINTS]**\n" + combo_hint
+            hint_instruction += "Use these combinations to verify the total amount/quantity. If they match, extract the individual items as evidence.\n"
+
         prompt = f"""
 다음 {doc_type} 문서의 OCR 텍스트를 분석하세요:
 
@@ -348,11 +365,20 @@ class SmartExtractionEngine:
   "field_confidence": {{
     {', '.join([f'"{f["name"]}": 0.95' for f in extraction_fields])}
   }},
+  "evidence": [
+    {{
+      "field": "total_amount",
+      "values": [100.00, 200.00],
+      "coordinates": [[ymin, xmin, ymax, xmax], [ymin, xmin, ymax, xmax]],
+      "reason": "Sum of line items matches expected total"
+    }}
+  ],
   "notes": "추출 과정에서 특이사항이나 불확실한 부분"
 }}
 """
         
-        max_retries = 3
+        # ★ FIX: 재시도 횟수 축소 (사용자 요청: 3 -> 1)
+        max_retries = 1
         retry_delay = 2
         
         for attempt in range(max_retries + 1):
@@ -483,152 +509,74 @@ class SmartExtractionEngine:
                         "notes": f"API 오류 (Max Retries): {e}"
                     }
 
-    def _find_text_coordinates(self, doc, text_val):
-        """
-        Find coordinates of text in PDF using PyMuPDF (fitz).
-        Returns [ymin, xmin, ymax, xmax] normalized to 0-1000.
-        """
-        if not text_val:
-            return None
-            
-        try:
-            page = doc[0]  # Assume first page for now
-            text_val_str = str(text_val).strip()
-            
-            # Try exact match first
-            quads = page.search_for(text_val_str)
-            
-            # If not found, try variations for numbers
-            if not quads:
-                # 1. Try adding/removing commas (e.g. 1000 <-> 1,000)
-                if ',' in text_val_str:
-                    clean_val = text_val_str.replace(',', '')
-                    quads = page.search_for(clean_val)
-                else:
-                    # Try adding commas (simple thousands separator)
-                    try:
-                        if text_val_str.replace('.', '').isdigit():
-                            float_val = float(text_val_str)
-                            formatted_val = "{:,.2f}".format(float_val) # 1,000.00
-                            quads = page.search_for(formatted_val)
-                            if not quads:
-                                formatted_val_no_dec = "{:,}".format(int(float_val)) # 1,000
-                                quads = page.search_for(formatted_val_no_dec)
-                    except:
-                        pass
-            
-            if quads:
-                # Use the first occurrence
-                quad = quads[0]
-                rect = quad.rect
-                
-                # Normalize to 0-1000
-                width = page.rect.width
-                height = page.rect.height
-                
-                ymin = int((rect.y0 / height) * 1000)
-                xmin = int((rect.x0 / width) * 1000)
-                ymax = int((rect.y1 / height) * 1000)
-                xmax = int((rect.x1 / width) * 1000)
-                
-                return [ymin, xmin, ymax, xmax]
-                
-        except Exception as e:
-            print(f"Error finding coordinates: {e}")
-            
-        return None
+    def _generate_search_variations(self, text: str) -> List[str]:
+        """Generate variations of text for robust searching (numbers, dates)"""
+        variations = [str(text)]
+        text_str = str(text).strip()
+        
+        # 1. Handle Numbers (remove/add commas, spaces)
+        clean_text = text_str.replace(',', '').replace(' ', '').strip()
+        if clean_text:
+            variations.append(clean_text)
+            try:
+                # Try to format as number with commas
+                float_val = float(clean_text)
+                variations.extend([
+                    f"{float_val:,.2f}",  # 1,234.56
+                    f"{float_val:,.0f}",  # 1,234
+                    f"{float_val:.2f}",   # 1234.56 (no comma)
+                    f"{float_val:.0f}",   # 1234 (no comma)
+                ])
+                if float_val.is_integer():
+                    variations.append(f"{int(float_val)}")  # 1234
+                    variations.append(f"{int(float_val):,}") # 1,234
+            except:
+                pass
 
-    async def process_single_pdf_async(self, pdf_path: str, slip_id: str, extraction_mode: str = 'basic', expected_values: Dict = None) -> Dict:
-        """
-        단일 PDF 파일 비동기 처리
-        """
-        filename = os.path.basename(pdf_path).upper()
-        
-        # 0. 파일명 기반 1차 필터링
-        is_target = False
-        if "BILL_OF_LADING" in filename or "WAYBILL" in filename:
-            is_target = True
-        elif "COMMERCIAL_INVOICE" in filename or "INVOICE" in filename:
-            doc_type = "INVOICE"
-        
-        print(f"   ✅ 타입 확정: {os.path.basename(pdf_path)} -> {doc_type}")
-        
-        # ✅ extraction_mode에 따라 필드 선택
-        extraction_modes = self.extraction_config.get('extraction_modes', {})
-        mode_config = extraction_modes.get(extraction_mode, extraction_modes.get('basic'))  # fallback to basic
-        
-        if mode_config and 'document_types' in mode_config:
-            document_types = mode_config['document_types']
-            if doc_type in document_types:
-                extraction_fields = document_types[doc_type].get('fields', [])
-                print(f"   📋 {extraction_mode} 모드 - {doc_type} 필드: {len(extraction_fields)}개")
-            else:
-                print(f"   ⚠️ {doc_type} 설정 없음, 스킵")
-                return {
-                    "slip_id": slip_id,
-                    "documents": [],
-                    "source": "pdf_ocr"
-                }
-        else:
-            print(f"   ⚠️ extraction_mode '{extraction_mode}' 설정 없음")
-            return {
-                "slip_id": slip_id,
-                "documents": [],
-                "source": "pdf_ocr"
-            }
-        
-        documents = []
-        
-        try:
-            full_text = ""
-            doc = fitz.open(pdf_path)
-            num_pages = len(doc)
-            pages_to_read = min(num_pages, 3)
-            
-            for i in range(pages_to_read):
-                page = doc[i]
-                text = page.get_text()
-                if len(text.strip()) < OCR_THRESHOLD:
-                    text = self.high_quality_ocr(pdf_path, i)
-                full_text += f"\n--- Page {i+1} ---\n{text}"
-            
-            doc.close()
-            
-            # 3. Gemini API 비동기 호출
-            print(f"   🤖 API 요청: {os.path.basename(pdf_path)}")
-            extraction_result = await self.extract_with_gemini_async(full_text, doc_type, extraction_fields, expected_values)
-            
-            extraction_result['page'] = 1
-            extraction_result['type'] = doc_type
-            extraction_result['file_name'] = os.path.basename(pdf_path)
-            
-            documents.append(extraction_result)
-            print(f"   ✨ 완료: {os.path.basename(pdf_path)}")
-            
-            return {
-                "slip_id": slip_id,
-                "documents": documents,
-                "source": "pdf_ocr"
-            }
-            
-        except Exception as e:
-            print(f"❌ 오류 ({os.path.basename(pdf_path)}): {e}")
-            return {
-                "slip_id": slip_id,
-                "documents": [],
-                "error": str(e)
-            }
-
+        # 2. Handle Dates (YYYY-MM-DD -> various formats)
+        # ISO format
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', text_str):
+            try:
+                from datetime import datetime
+                dt = datetime.strptime(text_str, "%Y-%m-%d")
+                variations.extend([
+                    # Common international formats
+                    dt.strftime("%d-%b-%y"),      # 24-Dec-24
+                    dt.strftime("%d-%b-%Y"),      # 24-Dec-2024
+                    dt.strftime("%b %d, %Y"),     # Dec 24, 2024
+                    dt.strftime("%d %b %Y"),      # 24 Dec 2024
+                    dt.strftime("%Y. %m. %d"),    # 2024. 12. 24
+                    dt.strftime("%Y/%m/%d"),      # 2024/12/24
+                    dt.strftime("%d/%m/%Y"),      # 24/12/2024
+                    dt.strftime("%m/%d/%Y"),      # 12/24/2024
+                    # With uppercase month
+                    dt.strftime("%d-%b-%Y").upper(),  # 24-DEC-2024
+                    dt.strftime("%d %b %Y").upper(),  # 24 DEC 2024
+                    # Without leading zeros
+                    f"{dt.day}-{dt.strftime('%b')}-{dt.year}",  # 8-Dec-2024
+                    f"{dt.day} {dt.strftime('%b')} {dt.year}",  # 8 Dec 2024
+                    # Dot separators
+                    dt.strftime("%d.%m.%Y"),      # 24.12.2024
+                    # Space variations
+                    dt.strftime("%Y %m %d"),      # 2024 12 24
+                ])
+            except:
+                pass
+                
+        # Remove duplicates and empty strings
+        return list(set([v for v in variations if v]))
 
     def _find_text_coordinates(self, pdf_path: str, text_to_find: str) -> List[int]:
         """
-        PDF에서 텍스트 좌표 찾기 (Post-processing)
+        PDF에서 텍스트 좌표 찾기 (Robust)
         Returns: [ymin, xmin, ymax, xmax] (0~1000 normalized)
         """
         if not text_to_find:
             return [0, 0, 0, 0]
             
         try:
+            variations = self._generate_search_variations(text_to_find)
+            
             doc = fitz.open(pdf_path)
             # 첫 3페이지만 검색
             for i in range(min(len(doc), 3)):
@@ -636,30 +584,16 @@ class SmartExtractionEngine:
                 width = page.rect.width
                 height = page.rect.height
                 
-                # 1. 정확한 매칭 검색
-                rects = page.search_for(str(text_to_find))
-                
-                # 2. 실패 시, 콤마/공백 제거 후 검색 (유연성)
-                if not rects:
-                    clean_text = str(text_to_find).replace(',', '').replace(' ', '')
-                    if len(clean_text) > 0:
-                        rects = page.search_for(clean_text)
-                
-                if rects:
-                    # 첫 번째 매칭 결과 사용
-                    rect = rects[0]
-                    
-                    # 좌표 정규화 (0~1000)
-                    # fitz: [x0, y0, x1, y1] (left, top, right, bottom)
-                    # Target: [ymin, xmin, ymax, xmax]
-                    
-                    xmin = int((rect.x0 / width) * 1000)
-                    ymin = int((rect.y0 / height) * 1000)
-                    xmax = int((rect.x1 / width) * 1000)
-                    ymax = int((rect.y1 / height) * 1000)
-                    
-                    doc.close()
-                    return [ymin, xmin, ymax, xmax]
+                for variant in variations:
+                    rects = page.search_for(variant)
+                    if rects:
+                        rect = rects[0]
+                        xmin = int((rect.x0 / width) * 1000)
+                        ymin = int((rect.y0 / height) * 1000)
+                        xmax = int((rect.x1 / width) * 1000)
+                        ymax = int((rect.y1 / height) * 1000)
+                        doc.close()
+                        return [ymin, xmin, ymax, xmax]
             
             doc.close()
             return [0, 0, 0, 0]
@@ -667,6 +601,48 @@ class SmartExtractionEngine:
         except Exception as e:
             print(f"⚠️ 좌표 검색 오류: {e}")
             return [0, 0, 0, 0]
+
+    def _find_multiple_text_coordinates(self, pdf_path: str, text_list: List[str]) -> List[List[int]]:
+        """
+        여러 텍스트의 좌표를 한 번에 검색 (최적화)
+        """
+        if not text_list:
+            return []
+        
+        results = []
+        try:
+            doc = fitz.open(pdf_path)
+            
+            for text_to_find in text_list:
+                found = False
+                variations = self._generate_search_variations(text_to_find)
+                
+                for i in range(min(len(doc), 3)):
+                    page = doc[i]
+                    width = page.rect.width
+                    height = page.rect.height
+                    
+                    for variant in variations:
+                        rects = page.search_for(variant)
+                        if rects:
+                            rect = rects[0]
+                            xmin = int((rect.x0 / width) * 1000)
+                            ymin = int((rect.y0 / height) * 1000)
+                            xmax = int((rect.x1 / width) * 1000)
+                            ymax = int((rect.y1 / height) * 1000)
+                            results.append([ymin, xmin, ymax, xmax])
+                            found = True
+                            break
+                    if found: break
+                
+                if not found:
+                    results.append([0, 0, 0, 0])
+            
+            doc.close()
+            return results
+        except Exception as e:
+            print(f"⚠️ 다중 좌표 검색 오류: {e}")
+            return [[0, 0, 0, 0]] * len(text_list)
 
     async def process_single_pdf_async(self, pdf_path: str, slip_id: str, extraction_mode: str = 'basic', expected_values: Dict = None) -> Dict:
         """
@@ -736,7 +712,7 @@ class SmartExtractionEngine:
                 text = page.get_text()
                 if len(text.strip()) < OCR_THRESHOLD:
                     text = self.high_quality_ocr(pdf_path, i)
-                full_text += f"\n--- Page {i+1} ---\n{text}"
+                full_text += f"\n\n{text}"
             
             doc.close()
             
@@ -758,14 +734,26 @@ class SmartExtractionEngine:
             # Evidence 좌표 찾기 (N:1)
             evidence = extraction_result.get('evidence')
             if evidence and isinstance(evidence, list):
-                # evidence가 좌표 리스트가 아니라 값 리스트일 수 있음. 
-                # 하지만 prompt에서 좌표를 달라고 했음. 
-                # Text 모드에서는 Gemini가 좌표를 못 주므로 값만 줄 수도 있음.
-                # 만약 값 리스트라면 좌표를 찾아야 함.
-                # 여기서는 Gemini가 텍스트 모드에서 뭘 줄지 불확실하므로, 
-                # evidence 필드에 있는 값들을 찾아서 좌표 리스트로 변환하는 로직이 필요할 수 있음.
-                # 일단 패스 (Gemini가 텍스트 모드에서 evidence에 뭘 넣을지 프롬프트에 달렸음)
-                pass
+                print(f"   🔍 Evidence 좌표 검색 중 ({len(evidence)} items)")
+                for item in evidence:
+                    # AI가 좌표를 주지 않았거나 비어있는 경우
+                    if not item.get('coordinates') or not any(item.get('coordinates', [])):
+                        values = item.get('values', [])
+                        
+                        if values:
+                            # Optimized: Find all coordinates at once
+                            found_coords = self._find_multiple_text_coordinates(pdf_path, [str(v) for v in values])
+                            
+                            # Filter out [0,0,0,0]
+                            valid_coords = [c for c in found_coords if c != [0, 0, 0, 0]]
+                            
+                            if valid_coords:
+                                item['coordinates'] = valid_coords
+                                print(f"     - Evidence coords found: {len(valid_coords)} boxes")
+                            else:
+                                item['coordinates'] = []
+                        else:
+                            item['coordinates'] = []
 
             extraction_result['page'] = 1
             extraction_result['type'] = doc_type
