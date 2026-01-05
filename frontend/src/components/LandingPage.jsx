@@ -3,11 +3,11 @@ import './LandingPage.css';
 
 const LandingPage = ({ onProjectStart, onLoadProject }) => {
     const [step, setStep] = useState('selection'); // 'selection' | 'naming'
-    const [selectedSource, setSelectedSource] = useState(null); // 'local' | 'sap'
+    const [selectedWorkflowType, setSelectedWorkflowType] = useState(null); // 'sales_evidence' | 'dterm_arrival'
     const [projectName, setProjectName] = useState('');
 
-    const handleSourceSelect = (source) => {
-        setSelectedSource(source);
+    const handleWorkflowSelect = (workflowType) => {
+        setSelectedWorkflowType(workflowType);
         setStep('naming');
     };
 
@@ -16,12 +16,12 @@ const LandingPage = ({ onProjectStart, onLoadProject }) => {
             alert('프로젝트 이름을 입력해주세요.');
             return;
         }
-        onProjectStart(projectName, selectedSource);
+        onProjectStart(projectName, selectedWorkflowType);
     };
 
     const handleBack = () => {
         setStep('selection');
-        setSelectedSource(null);
+        setSelectedWorkflowType(null);
     };
 
     return (
@@ -36,15 +36,15 @@ const LandingPage = ({ onProjectStart, onLoadProject }) => {
                     <div className="selection-step">
                         <h2 className="step-title">프로젝트 시작하기</h2>
                         <div className="source-cards">
-                            <div className="source-card" onClick={() => handleSourceSelect('local')}>
-                                <div className="card-icon">📂</div>
-                                <h3>로컬 파일 불러오기</h3>
-                                <p>CSV, Excel 파일을 업로드하여 분석을 시작합니다.</p>
+                            <div className="source-card" onClick={() => handleWorkflowSelect('sales_evidence')}>
+                                <div className="card-icon">📊</div>
+                                <h3>매출 데이터 불러오기</h3>
+                                <p>Invoice + BL 기반 매출 전표 검증</p>
                             </div>
-                            <div className="source-card" onClick={() => handleSourceSelect('sap')}>
-                                <div className="card-icon">☁️</div>
-                                <h3>SAP 데이터 가져오기</h3>
-                                <p>SAP 시스템에서 전표 리스트를 조회하고 다운로드합니다.</p>
+                            <div className="source-card" onClick={() => handleWorkflowSelect('dterm_arrival')}>
+                                <div className="card-icon">📦</div>
+                                <h3>D조건 데이터 불러오기</h3>
+                                <p>도착일 기반 D조건 전표 검증</p>
                             </div>
                             <div className="source-card" onClick={onLoadProject}>
                                 <div className="card-icon">📁</div>
@@ -58,7 +58,7 @@ const LandingPage = ({ onProjectStart, onLoadProject }) => {
                 {step === 'naming' && (
                     <div className="naming-step">
                         <h2 className="step-title">
-                            {selectedSource === 'local' ? '로컬 파일 프로젝트' : 'SAP 연동 프로젝트'}
+                            {selectedWorkflowType === 'sales_evidence' ? '📊 매출증빙 프로젝트' : '📦 D조건 프로젝트'}
                         </h2>
                         <div className="input-group">
                             <label>프로젝트 이름</label>

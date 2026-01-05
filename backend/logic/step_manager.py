@@ -28,25 +28,53 @@ class StepManager:
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
 
-    def initialize_project_structure(self, project_id, name):
+    def initialize_project_structure(self, project_id, name, workflow_type='sales_evidence'):
+        """
+        Initialize project folder structure
+
+        Args:
+            project_id: Project ID
+            name: Project name
+            workflow_type: 'sales_evidence' (default) | 'dterm_arrival'
+        """
         project_path = self.get_project_path(project_id)
         os.makedirs(project_path, exist_ok=True)
-        
-        # Create step directories
-        steps_dirs = [
-            'step1_invoice_confirmation',
-            'step2_evidence_collection',
-            'step3_data_extraction',
-            'step4_reconciliation'
-        ]
-        
+
+        # Create step directories based on workflow type
+        if workflow_type == 'sales_evidence':
+            steps_dirs = [
+                'step1_invoice_confirmation',
+                'step2_evidence_collection',
+                'step2_evidence_collection/DMS_Downloads',
+                'step2_evidence_collection/split_documents',
+                'step3_data_extraction',
+                'step4_reconciliation'
+            ]
+        elif workflow_type == 'dterm_arrival':
+            steps_dirs = [
+                'step1_invoice_confirmation',
+                'step2_evidence_collection',
+                'step2_evidence_collection/dterm_downloads',
+                'step3_data_extraction',
+                'step4_dashboard'
+            ]
+        else:
+            # Default to sales_evidence
+            steps_dirs = [
+                'step1_invoice_confirmation',
+                'step2_evidence_collection',
+                'step3_data_extraction',
+                'step4_reconciliation'
+            ]
+
         for step_dir in steps_dirs:
             os.makedirs(os.path.join(project_path, step_dir), exist_ok=True)
-            
+
         # Initialize metadata
         metadata = {
             "id": project_id,
             "name": name,
+            "workflow_type": workflow_type,  # ★ 워크플로우 타입 추가
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
             "current_step": 0,
@@ -233,13 +261,19 @@ class StepManager:
     def unconfirm_step(self, project_id, step_number):
         """Unconfirm a step (Cancel Confirmation)"""
         metadata = self.load_metadata(project_id)
-        
+        project_path = self.get_project_path(project_id)
+
         if step_number == 1:
             # Step 1 Unconfirm
             # Check if Step 2 is completed
             if metadata['steps']['step2']['status'] == 'completed':
                 raise Exception("Step 2가 확정된 상태에서는 Step 1 확정을 취소할 수 없습니다. 먼저 Step 2 확정을 취소하세요.")
-            
+
+            # Delete confirmed_invoices.csv to allow re-confirmation
+            confirmed_path = os.path.join(project_path, 'step1_invoice_confirmation', 'confirmed_invoices.csv')
+            if os.path.exists(confirmed_path):
+                os.remove(confirmed_path)
+
             metadata['steps']['step1']['status'] = 'pending'
             metadata['steps']['step1']['completed_at'] = None
             metadata['current_step'] = 0
@@ -392,7 +426,7 @@ class StepManager:
             billing_col = None
             if confirmed_data:
                 first_row = confirmed_data[0]
-                priority_names = ['Billing Document', 'BillingDocument', '전표번호', 'Document Number', 'Invoice Number']
+                priority_names = ['Billing No.', 'Billing Document', 'BillingDocument', '전표번호', 'Document Number', 'Invoice Number']
                 for name in priority_names:
                     if name in first_row:
                         billing_col = name

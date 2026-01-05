@@ -7,13 +7,13 @@
     display: table-cell !important;
 }
 
-/* Dark Theme Styles */
+/* Light Theme Styles */
 .comparison-enhanced-container {
     display: flex;
     flex-direction: column;
     height: 100%;
     gap: 1rem;
-    background: #0f0f1e;
+    background: #ffffff;
     padding: 1rem;
 }
 
@@ -28,20 +28,20 @@
 
 .conf-high {
     background: rgba(16, 185, 129, 0.2);
-    color: #34d399;
+    color: #10b981;
 }
 
 .conf-mid {
     background: rgba(245, 158, 11, 0.2);
-    color: #fbbf24;
+    color: #f59e0b;
 }
 
 .conf-low {
     background: rgba(239, 68, 68, 0.2);
-    color: #f87171;
+    color: #ef4444;
 }
 
-/* Scrollbar Styling */
+/* Scrollbar Styling for Light Theme */
 .view-mode-basic::-webkit-scrollbar,
 .view-mode-detailed::-webkit-scrollbar {
     width: 8px;
@@ -50,16 +50,16 @@
 
 .view-mode-basic::-webkit-scrollbar-track,
 .view-mode-detailed::-webkit-scrollbar-track {
-    background: #1a1a2a;
+    background: #f1f5f9;
 }
 
 .view-mode-basic::-webkit-scrollbar-thumb,
 .view-mode-detailed::-webkit-scrollbar-thumb {
-    background: #3a3a4a;
+    background: #cbd5e1;
     border-radius: 4px;
 }
 
 .view-mode-basic::-webkit-scrollbar-thumb:hover,
 .view-mode-detailed::-webkit-scrollbar-thumb:hover {
-    background: #4a4a5a;
+    background: #94a3b8;
 }

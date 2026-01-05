@@ -46,6 +46,10 @@ reconciliation_manager = ReconciliationManager()
 download_progress = {}
 split_progress = {}
 extraction_progress = {}  # Step 3 추출 진행률
+dterm_progress = {}  # D조건 SAP 다운로드 진행률
+
+# Register in app.config for blueprint access
+app.config['extraction_progress'] = extraction_progress
 
 @app.route('/')
 def serve():
@@ -83,14 +87,15 @@ def get_projects():
 def create_project():
     data = request.json
     name = data.get('name', 'Untitled Project')
-    
+    workflow_type = data.get('workflow_type', 'sales_evidence')  # ★ workflow_type 파라미터 추가
+
     # Generate ID: Name_YYYYMMDD_HHMMSS
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     sanitized_name = sanitize_filename(name)
     project_id = f"{sanitized_name}_{timestamp}"
-    
+
     try:
-        metadata = step_manager.initialize_project_structure(project_id, name)
+        metadata = step_manager.initialize_project_structure(project_id, name, workflow_type)  # ★ 전달
         return jsonify(metadata)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -481,6 +486,147 @@ def manual_dms_download():
             pass
         return jsonify({"error": str(e)}), 500
 
+# ===== D조건 SAP 다운로드 Endpoints =====
+
+@app.route('/api/projects/<project_id>/dterm-sap-download', methods=['POST'])
+def download_dterm_documents(project_id):
+    """D조건 증빙 SAP 다운로드 (ZTDR0210)"""
+    project_dir = os.path.join(PROJECTS_DIR, project_id)
+    if not os.path.exists(project_dir):
+        return jsonify({"error": "Project not found"}), 404
+
+    # Use StepManager to get confirmed data path
+    confirmed_path = os.path.join(project_dir, 'step1_invoice_confirmation', 'confirmed_invoices.csv')
+
+    if not os.path.exists(confirmed_path):
+        return jsonify({"error": "Confirmed data not found. Please confirm data first."}), 404
+
+    try:
+        # Confirmed data 로드
+        df = pd.read_csv(confirmed_path)
+        print(f"[DTERM] Loaded confirmed data: {len(df)} rows")
+
+        # Check for target documents and force redownload option
+        data = request.json or {}
+        target_documents = data.get('targetDocuments')
+        force_redownload = data.get('forceRedownload', False)
+
+        print(f"[DTERM] Received request - targetDocuments: {target_documents}, forceRedownload: {force_redownload}")
+
+        doc_numbers = []
+
+        if target_documents:
+            doc_numbers = [str(d).strip() for d in target_documents]
+            print(f"[DTERM] Target download for {len(doc_numbers)} documents")
+        else:
+            # Billing No. 컬럼 찾기
+            billing_col = None
+
+            # D조건 전표번호 컬럼명
+            priority_names = ['Billing No.', 'BillingDocument', 'Billing Document', '전표번호']
+            for name in priority_names:
+                if name in df.columns:
+                    billing_col = name
+                    break
+
+            if not billing_col:
+                # 부분 매칭
+                for col in df.columns:
+                    if 'billing' in col.lower() or '전표' in col:
+                        billing_col = col
+                        break
+
+            if not billing_col:
+                return jsonify({"error": "Billing column not found in confirmed data"}), 400
+
+            doc_numbers = [str(num).strip() for num in df[billing_col].dropna() if str(num).strip()]
+            print(f"[DTERM] Full download for {len(doc_numbers)} documents (from column '{billing_col}')")
+
+        # D조건 증빙 저장 경로
+        dterm_dir = os.path.join(project_dir, 'step2_evidence_collection', 'dterm_downloads')
+        os.makedirs(dterm_dir, exist_ok=True)
+
+        # 백그라운드 스레드에서 다운로드 실행
+        import threading
+
+        # Initialize progress
+        dterm_progress[project_id] = {
+            "status": "running",
+            "current": 0,
+            "total": len(doc_numbers),
+            "message": "Starting D-term download...",
+            "results": []
+        }
+
+        def download_task():
+            try:
+                # D조건 다운로더 import
+                sys.path.insert(0, os.path.join(BASE_DIR, 'Modules', 'Dterm_Downloader'))
+                from dterm_downloader_module import DtermDownloader
+
+                print(f"[DTERM] Starting download for {len(doc_numbers)} documents...")
+
+                def progress_callback(current, total, doc_number, message):
+                    dterm_progress[project_id].update({
+                        "current": current,
+                        "total": total,
+                        "message": f"[{doc_number}] {message}" if doc_number else message
+                    })
+
+                # 다운로더 실행
+                downloader = DtermDownloader(dterm_dir, progress_callback)
+                results = downloader.download_documents(doc_numbers, force_redownload=force_redownload)
+
+                print(f"✓ D조건 다운로드 완료: {results}")
+
+                # Mark as completed
+                dterm_progress[project_id].update({
+                    "status": "completed",
+                    "current": len(doc_numbers),
+                    "total": len(doc_numbers),
+                    "message": f"Download complete. Success: {results.get('success', 0)}, Failed: {results.get('failed', 0)}, Skipped: {results.get('skipped', 0)}",
+                    "results": results
+                })
+
+            except Exception as e:
+                import traceback
+                error_msg = f"API Error: {str(e)}\n{traceback.format_exc()}"
+                traceback.print_exc()
+                try:
+                    with open("dterm_debug.log", "a", encoding="utf-8") as f:
+                        f.write(f"[{datetime.now().strftime('%H:%M:%S')}] [API_ERROR] {error_msg}\n")
+                except:
+                    pass
+
+                # Mark as error
+                dterm_progress[project_id].update({
+                    "status": "error",
+                    "message": str(e)
+                })
+
+        # Start the background thread
+        thread = threading.Thread(target=download_task, daemon=True)
+        thread.start()
+
+        return jsonify({
+            "status": "started",
+            "message": "D-term download started in background",
+            "project_id": project_id
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/dterm/progress/<project_id>', methods=['GET'])
+def get_dterm_progress(project_id):
+    """Get D-term download progress"""
+    progress = dterm_progress.get(project_id)
+    if not progress:
+        return jsonify({"status": "not_found"}), 404
+    return jsonify(progress)
+
 @app.route('/api/pipeline/parse', methods=['POST'])
 def run_parser():
     data = request.json
@@ -673,25 +819,39 @@ def search_evidence(project_id):
                             "path": f"step2_evidence_collection/split_documents/{billing_doc}/{f}"
                         })
         
-        # 2. Check DMS_Downloads (Fallback) if no split files found (or always?)
-        # User might want to see originals even if split exists. Let's return both.
+        # 2. Check DMS_Downloads (Fallback) - Support PDF and images
         dms_dir = os.path.join(evidence_dir, 'DMS_Downloads')
         if os.path.exists(dms_dir):
             # Recursive search in DMS_Downloads for files starting with billing_doc
             for root, dirs, files in os.walk(dms_dir):
                 for f in files:
-                    if f.startswith(billing_doc) and f.lower().endswith('.pdf'):
-                        # Calculate relative path from project root
+                    ext = f.lower().split('.')[-1]
+                    # Support PDF and common image formats
+                    if f.startswith(billing_doc) and ext in ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']:
                         full_path = os.path.join(root, f)
                         rel_path = os.path.relpath(full_path, project_dir)
-                        # Ensure forward slashes for URL
                         rel_path = rel_path.replace('\\', '/')
                         results.append({
                             "type": "original",
                             "filename": f,
                             "path": rel_path
                         })
-                        
+
+        # 3. Check dterm_downloads (D-term evidence)
+        dterm_dir = os.path.join(evidence_dir, 'dterm_downloads')
+        if os.path.exists(dterm_dir):
+            for f in os.listdir(dterm_dir):
+                if f.startswith(billing_doc) and not f.endswith('.json'):
+                    ext = f.lower().split('.')[-1]
+                    # Support all file types (PDF, images, etc.)
+                    if ext in ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'eml', 'msg']:
+                        rel_path = f"step2_evidence_collection/dterm_downloads/{f}"
+                        results.append({
+                            "type": "dterm",
+                            "filename": f,
+                            "path": rel_path
+                        })
+
         return jsonify(results)
         
     except Exception as e:
@@ -821,6 +981,25 @@ def get_evidence_status(project_id):
                             # ✅ DO NOT classify doc type for originals - only for split files
                             print(f"[DEBUG] Found DMS file for {billing_doc}: {f}")
         
+        # 3. Scan dterm_downloads (D-term evidence) - Check history.json
+        dterm_dir = os.path.join(evidence_dir, 'dterm_downloads')
+        dterm_history_file = os.path.join(dterm_dir, 'dterm_download_history.json')
+
+        if os.path.exists(dterm_history_file):
+            print(f"[DEBUG] Reading D-term download history: {dterm_history_file}")
+            try:
+                with open(dterm_history_file, 'r', encoding='utf-8') as f:
+                    history = json.load(f)
+                    downloaded = history.get('downloaded', {})
+
+                    for billing_doc, info in downloaded.items():
+                        status_map[billing_doc] = status_map.get(billing_doc, {'split': False, 'original': False, 'types': []})
+                        status_map[billing_doc]['original'] = True
+                        status_map[billing_doc]['files_count'] = info.get('file_count', 0)
+                        print(f"[DEBUG] D-term evidence for {billing_doc}: {info.get('file_count', 0)} files")
+            except Exception as e:
+                print(f"[DEBUG] Failed to read D-term history: {e}")
+
         print(f"[DEBUG] Evidence status for {len(status_map)} documents")
         return jsonify(status_map)
             

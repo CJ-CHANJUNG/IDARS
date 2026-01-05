@@ -122,14 +122,16 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows, setExt
     const handleSaveDraft = async (finalJudgments) => {
         if (!project?.id) return;
 
+        // ★ Use confirm-judgment endpoint (same as final confirmation)
         try {
             const response = await fetch(
-                `/api/projects/${project.id}/step3/save-draft`,
+                `/api/projects/${project.id}/step3/confirm-judgment`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        judgments: finalJudgments
+                        judgments: finalJudgments,
+                        projectsDir: 'Data/projects'
                     })
                 }
             );
@@ -249,19 +251,9 @@ export const useStep3Handlers = (step3SelectedRows, setStep3SelectedRows, setExt
                 // alert('✅ 최종 판단이 저장되었습니다.'); // ComparisonTableEnhanced already alerts
                 console.log('Judgments saved successfully');
 
-                // Update local state to reflect changes (optional, but good for consistency)
-                setComparisonResults(prev => prev.map(row => {
-                    if (judgments[row.billing_document]) {
-                        return {
-                            ...row,
-                            auto_comparison: {
-                                ...row.auto_comparison,
-                                status: judgments[row.billing_document]
-                            }
-                        };
-                    }
-                    return row;
-                }));
+                // ★ DO NOT update auto_comparison.status!
+                // 1차 판단은 AI 자동 판단이므로 변경하지 않음
+                // final_status만 서버에 저장됨
             } else {
                 const error = await response.json();
                 alert('저장 실패: ' + (error.error || '알 수 없는 오류'));

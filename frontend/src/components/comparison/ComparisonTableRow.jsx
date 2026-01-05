@@ -9,6 +9,7 @@ const ComparisonTableRow = ({
     setEditValue,
     userCorrections,
     finalJudgments,
+    pendingJudgments, // ★ NEW: 임시 판단
     onRowSelect,
     onCellClick,
     onCellDoubleClick,
@@ -28,6 +29,9 @@ const ComparisonTableRow = ({
     const ocr = row.ocr_data || {};
     const blData = row.bl_data || {};
     const billingDoc = row.billing_document;
+
+    // ★ 드롭다운 표시값: 임시 판단 우선, 없으면 확정된 판단
+    const displayJudgment = pendingJudgments?.[billingDoc] || finalJudgments[billingDoc] || '';
     const isSelected = selectedRows.has(billingDoc);
 
     const dateValue = getCorrectedValue(billingDoc, 'date', ocr.date);
@@ -42,11 +46,11 @@ const ComparisonTableRow = ({
 
     const cellStyle = {
         padding: '0.4rem 0.5rem',
-        border: '1px solid #2a2a3a',
+        border: '1px solid #e2e8f0',
         textAlign: 'center',
         fontSize: '0.8rem',
-        color: '#d0d0d0',
-        background: '#1f1f2f'
+        color: '#334155',
+        background: '#ffffff'
     };
 
     const renderEditableCell = (field, value, isCorrected, fieldResult, isAmount = false) => {
@@ -99,8 +103,8 @@ const ComparisonTableRow = ({
 
     return (
         <tr style={{
-            borderBottom: '1px solid #2a2a3a',
-            background: isSelected ? 'rgba(139, 92, 246, 0.1)' : '#1f1f2f'
+            borderBottom: '1px solid #e2e8f0',
+            background: isSelected ? 'rgba(139, 92, 246, 0.08)' : '#ffffff'
         }}>
             <td style={cellStyle}>
                 <input
@@ -113,28 +117,30 @@ const ComparisonTableRow = ({
             <td style={cellStyle}>{getStatusIcon(status)}</td>
             <td style={cellStyle}>
                 <select
-                    value={finalJudgments[billingDoc] || ''}
+                    value={displayJudgment}
                     onChange={(e) => onFinalJudgmentChange(billingDoc, e.target.value)}
                     style={{
                         padding: '0.2rem',
-                        border: '1px solid #cbd5e1',
                         borderRadius: '4px',
                         fontSize: '0.75rem',
                         cursor: 'pointer',
-                        background: finalJudgments[billingDoc] === 'complete_match' ? 'rgba(16, 185, 129, 0.2)' :
-                            finalJudgments[billingDoc] === 'partial_error' ? 'rgba(245, 158, 11, 0.2)' :
-                                finalJudgments[billingDoc] === 'review_required' ? 'rgba(239, 68, 68, 0.2)' : '#2d2d3d',
-                        color: '#e0e0e0',
-                        border: '1px solid #3a3a4a'
+                        // ★ 임시 판단이 있으면 연한 노란색 배경으로 표시 (아직 확정 안됨)
+                        background: pendingJudgments?.[billingDoc] ? 'rgba(251, 191, 36, 0.2)' :
+                            displayJudgment === 'complete_match' ? 'rgba(16, 185, 129, 0.15)' :
+                            displayJudgment === 'partial_error' ? 'rgba(245, 158, 11, 0.15)' :
+                            displayJudgment === 'review_required' ? 'rgba(239, 68, 68, 0.15)' : '#ffffff',
+                        color: '#334155',
+                        border: pendingJudgments?.[billingDoc] ? '2px solid rgba(251, 191, 36, 0.5)' : '1px solid #cbd5e1'
                     }}
                 >
                     <option value="">-</option>
                     <option value="complete_match">✅</option>
                     <option value="partial_error">⚠️</option>
                     <option value="review_required">❌</option>
+                    <option value="no_evidence">🚫</option>
                 </select>
             </td>
-            <td style={{ ...cellStyle, fontWeight: '700', background: '#2d2d3d', color: '#ffffff' }}>{billingDoc}</td>
+            <td style={{ ...cellStyle, fontWeight: '700', background: '#f1f5f9', color: '#1e293b' }}>{billingDoc}</td>
 
             {/* 전표 데이터 */}
             <td style={cellStyle}>{step1.shipment_date || step1.date || '-'}</td>

@@ -277,12 +277,14 @@ class SmartExtractionEngine:
         # 기대 값(Expected Values) 힌트 추가
         hint_instruction = ""
         if expected_values:
+            print(f"[DEBUG] Expected values received: {expected_values}")  # ★ 디버그 로그
             hint_instruction = "\n**[중요 힌트]** 다음은 이 문서에서 기대되는 값들입니다. 문서 내에서 이 값들과 일치하는 항목을 우선적으로 찾아보세요:\n"
-            if 'total_amount' in expected_values:
+            if 'total_amount' in expected_values and expected_values['total_amount'] is not None:
                 hint_instruction += f"- 기대 총 금액: {expected_values['total_amount']}\n"
-            if 'total_quantity' in expected_values:
+            if 'total_quantity' in expected_values and expected_values['total_quantity'] is not None:
                 hint_instruction += f"- 기대 총 수량: {expected_values['total_quantity']}\n"
             hint_instruction += "만약 기대 값과 문서상의 값이 다르다면, 문서상의 값을 추출하고 그 이유를 'notes' 필드에 기록하세요.\n"
+            print(f"[DEBUG] Hint instruction:\n{hint_instruction}")  # ★ 디버그 로그
 
         # 필드별 프롬프트 및 예상 응답 구조 생성
         field_prompts = ""

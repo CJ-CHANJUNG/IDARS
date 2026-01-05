@@ -53,3 +53,4 @@ Config/api_config.py
 !jsconfig.json
 !frontend/jsconfig.json
 !Config/extraction_config.json
+nul

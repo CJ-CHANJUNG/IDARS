@@ -4,7 +4,9 @@ import Sidebar from './components/Sidebar'
 import LandingPage from './components/LandingPage'
 import ProjectListModal from './components/ProjectListModal'
 import Step1InvoiceConfirmation from './components/steps/Step1InvoiceConfirmation'
+import Step1DtermInvoiceConfirmation from './components/steps/Step1DtermInvoiceConfirmation'
 import Step2EvidenceCollection from './components/steps/Step2EvidenceCollection'
+import Step2DtermEvidenceCollection from './components/steps/Step2DtermEvidenceCollection'
 import Step3DataExtraction from './components/steps/Step3DataExtraction'
 import ResultsDashboard from './components/ResultsDashboard'
 import Settings from './components/Settings'
@@ -26,13 +28,16 @@ function AppContent() {
   const [isProjectListOpen, setIsProjectListOpen] = useState(false);
 
   // --- Project Management Handlers ---
-  const handleStartProject = async (name, source) => {
-    console.log("Starting project:", name, source);
+  const handleStartProject = async (name, workflowType) => {
+    console.log("Starting project:", name, workflowType);
     try {
       const response = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({
+          name: name,
+          workflow_type: workflowType  // ★ workflow_type 전달
+        })
       });
       const newProject = await response.json();
       console.log("Project created:", newProject);
@@ -51,12 +56,8 @@ function AppContent() {
         setHistory([]);
         setHistoryIndex(-1);
 
-        // Set sidebar view based on source
-        if (source === 'local' || source === 'sap') {
-          setSidebarView('step1');
-        } else {
-          setSidebarView('step1');
-        }
+        // Set sidebar view to step1
+        setSidebarView('step1');
       } else {
         alert('프로젝트 생성 실패: ' + newProject.error);
       }
@@ -135,10 +136,21 @@ function AppContent() {
             </div>
 
             <div className="content-area">
-              {/* MotherWorkspace removed */}
+              {/* ★ Step 1: 워크플로우별 분기 */}
+              {sidebarView === 'step1' && (
+                project?.workflow_type === 'dterm_arrival'
+                  ? <Step1DtermInvoiceConfirmation />
+                  : <Step1InvoiceConfirmation />
+              )}
 
-              {sidebarView === 'step1' && <Step1InvoiceConfirmation />}
-              {sidebarView === 'step2' && <Step2EvidenceCollection />}
+              {/* ★ Step 2: 워크플로우별 분기 */}
+              {sidebarView === 'step2' && (
+                project?.workflow_type === 'dterm_arrival'
+                  ? <Step2DtermEvidenceCollection />
+                  : <Step2EvidenceCollection />
+              )}
+
+              {/* ★ Step 3: 추후 분기 예정 */}
               {sidebarView === 'step3' && <Step3DataExtraction />}
 
               {/* Results Dashboard (replaced Step 4) */}

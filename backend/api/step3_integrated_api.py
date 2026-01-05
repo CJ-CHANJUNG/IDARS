@@ -4,7 +4,7 @@ Step 3 통합 API 엔드포인트
 추출 + 정규화 + 비교를 한 번에 처리
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 import os
 import json
 import sys
@@ -92,8 +92,10 @@ def extract_and_compare(project_id):
         print(f"[DEBUG] Created expected_values_map for {len(expected_values_map)} slips")
 
         # ★ 진행률 초기화
-        from app import extraction_progress
-        extraction_progress[project_id] = {
+        if 'extraction_progress' not in current_app.config:
+            current_app.config['extraction_progress'] = {}
+        
+        current_app.config['extraction_progress'][project_id] = {
             "status": "running",
             "current": 0,
             "total": len(target_ids) if target_ids else 0,
@@ -104,7 +106,7 @@ def extract_and_compare(project_id):
         
         # ★ 진행률 콜백 함수
         def update_extraction_progress(current, total, doc_number, message):
-            extraction_progress[project_id].update({
+            current_app.config['extraction_progress'][project_id].update({
                 "current": current,
                 "total": total,
                 "doc_number": doc_number,
@@ -147,8 +149,8 @@ def extract_and_compare(project_id):
             print(f"[DEBUG] Async extraction completed. Results count: {len(extraction_results_raw)}")
             
             # ★ 진행률 완료 처리
-            extraction_progress[project_id]["status"] = "completed"
-            extraction_progress[project_id]["message"] = "추출 완료"
+            current_app.config['extraction_progress'][project_id]["status"] = "completed"
+            current_app.config['extraction_progress'][project_id]["message"] = "추출 완료"
             
         except Exception as e:
             print(f"[CRITICAL ERROR] Async execution failed: {e}")
@@ -156,8 +158,8 @@ def extract_and_compare(project_id):
             traceback.print_exc()
             
             # ★ 진행률 에러 처리
-            extraction_progress[project_id]["status"] = "error"
-            extraction_progress[project_id]["message"] = str(e)
+            current_app.config['extraction_progress'][project_id]["status"] = "error"
+            current_app.config['extraction_progress'][project_id]["message"] = str(e)
             
             # Log to file to persist after crash
             with open("crash_log.txt", "a") as f:
@@ -526,10 +528,11 @@ def update_field(project_id):
                     'note': note
                 }
                 
+                # ★ REMOVED: Don't auto-set final_status on field edit (user must confirm via "최종판단" button)
                 # Recalculate final status
                 # Count how many fields match after correction
                 # (Simplified - in production you'd rerun the comparison)
-                final_results[billing_doc]['final_status'] = 'complete_match'  # Optimistic
+                # final_results[billing_doc]['final_status'] = 'complete_match'  # Optimistic
                 
                 break
         
@@ -683,13 +686,14 @@ def get_extraction_data(project_id):
                             has_invoice = True
                             break
                 
-                # BL도 없고 Invoice도 없으면 -> No Evidence
+                # BL도 없고 Invoice도 없으면 -> No Evidence (auto_comparison만 설정, final_status는 사용자가 직접 선택할 때만)
                 if (not bl_data or (isinstance(bl_data, dict) and not bl_data)) and not has_invoice:
                     # print(f"[DEBUG] No Evidence for {billing_doc}")
                     if 'auto_comparison' in item:
                         item['auto_comparison']['status'] = 'no_evidence'
-                        if 'final_status' not in item:
-                            item['final_status'] = 'no_evidence'
+                        # ★ REMOVED: Auto-set final_status (user should confirm manually)
+                        # if 'final_status' not in item:
+                        #     item['final_status'] = 'no_evidence'
                 
                 response_data.append(item)
         else:
@@ -699,7 +703,77 @@ def get_extraction_data(project_id):
             "status": "success",
             "data": response_data
         })
-        
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@step3_integrated_bp.route('/api/projects/<project_id>/step3/confirm-judgment', methods=['POST'])
+def confirm_judgment(project_id):
+    """
+    최종 판단 확정 API
+    사용자가 선택한 전표들의 최종 판단(final_status)을 저장
+    """
+    try:
+        data = request.get_json()
+        judgments = data.get('judgments', {})  # {billing_doc: status, ...}
+        projects_dir = data.get('projectsDir', 'Data/projects')
+
+        if not judgments:
+            return jsonify({"error": "No judgments provided"}), 400
+
+        print(f"[DEBUG] Confirm judgment for project {project_id}: {len(judgments)} documents")
+
+        # Load final_comparison_results.json
+        project_path = os.path.join(projects_dir, project_id)
+        step3_dir = os.path.join(project_path, 'step3_data_extraction')
+        final_results_file = os.path.join(step3_dir, 'final_comparison_results.json')
+
+        if not os.path.exists(final_results_file):
+            return jsonify({"error": "final_comparison_results.json not found"}), 404
+
+        # Load existing data
+        with open(final_results_file, 'r', encoding='utf-8') as f:
+            current_data = json.load(f)
+
+        # ★ Preserve format! If it's a list, keep it as list. If dict, keep as dict.
+        updated_count = 0
+
+        if isinstance(current_data, list):
+            # Update items in list directly
+            for item in current_data:
+                billing_doc = str(item.get('billing_document', ''))
+                if billing_doc in judgments:
+                    item['final_status'] = judgments[billing_doc]
+                    updated_count += 1
+                    print(f"[DEBUG] Updated {billing_doc}: final_status = {judgments[billing_doc]}")
+
+            # Save list back
+            with open(final_results_file, 'w', encoding='utf-8') as f:
+                json.dump(current_data, f, ensure_ascii=False, indent=2)
+
+        else:
+            # Dict format (from old save-draft)
+            for billing_doc, status in judgments.items():
+                if billing_doc not in current_data:
+                    current_data[billing_doc] = {}
+                current_data[billing_doc]['final_status'] = status
+                updated_count += 1
+                print(f"[DEBUG] Updated {billing_doc}: final_status = {status}")
+
+            # Save dict back
+            with open(final_results_file, 'w', encoding='utf-8') as f:
+                json.dump(current_data, f, ensure_ascii=False, indent=2)
+
+        print(f"[DEBUG] Saved {updated_count} final judgments to {final_results_file}")
+
+        return jsonify({
+            "status": "success",
+            "updated_count": updated_count
+        })
+
     except Exception as e:
         import traceback
         traceback.print_exc()

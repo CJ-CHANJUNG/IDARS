@@ -63,7 +63,12 @@ const Step3DataExtraction = () => {
                         </button>
                         <button
                             className="dp-btn dp-btn-secondary"
-                            onClick={() => handleSaveDraft(finalJudgments)}
+                            onClick={() => {
+                                // ★ Note: finalJudgments from context is managed globally.
+                                // For now, we'll save what's in global state.
+                                // TODO: Merge pendingJudgments from table if needed
+                                handleSaveDraft(finalJudgments);
+                            }}
                         >
                             💾 Save Draft
                         </button>

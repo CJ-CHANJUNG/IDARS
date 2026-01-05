@@ -18,6 +18,8 @@ const ComparisonTableEnhanced = ({
     const {
         statusFilter,
         setStatusFilter,
+        finalJudgmentFilter, // ★ NEW
+        setFinalJudgmentFilter, // ★ NEW
         docFilter,
         setDocFilter,
         editingCell,
@@ -26,6 +28,8 @@ const ComparisonTableEnhanced = ({
         setEditValue,
         userCorrections,
         finalJudgments,
+        pendingJudgments, // ★ NEW: 임시 판단
+        confirmPendingJudgments, // ★ NEW: 확정 함수
         filteredData,
         stats,
         totalTokens,
@@ -85,25 +89,24 @@ const ComparisonTableEnhanced = ({
         }
     };
 
-    const handleFinalJudgment = () => {
-        const selectedCount = selectedRows ? selectedRows.size : 0;
-        if (selectedCount === 0) {
-            alert('최종 판단할 항목을 선택해주세요.');
+    const handleSaveDraft = () => {
+        const pendingCount = Object.keys(pendingJudgments).length;
+        if (pendingCount === 0) {
+            alert('저장할 변경사항이 없습니다.');
             return;
         }
-        if (window.confirm(`선택된 ${selectedCount}건의 최종 판단을 확정하시겠습니까?`)) {
-            const selectedCorrections = {};
-            selectedRows.forEach(doc => {
-                if (userCorrections[doc]) {
-                    selectedCorrections[doc] = userCorrections[doc];
-                }
-            });
-            if (onFinalConfirm) {
-                onFinalConfirm(selectedCorrections, Array.from(selectedRows), finalJudgments);
-            }
-            alert(`✅ ${selectedCount}건의 최종 판단이 확정되었습니다.`);
-            if (onSelectAll) onSelectAll({ target: { checked: false } });
+
+        // ★ 모든 pending 판단을 finalJudgments로 확정
+        confirmPendingJudgments(Object.keys(pendingJudgments));
+
+        // ★ Merge pending with final and save
+        const judgmentsToSave = { ...finalJudgments, ...pendingJudgments };
+
+        if (onFinalConfirm) {
+            onFinalConfirm({}, Object.keys(pendingJudgments), judgmentsToSave);
         }
+
+        alert(`✅ ${pendingCount}건의 판단이 저장되었습니다.`);
     };
 
     const onCellEditComplete = (billingDoc, field) => {
@@ -117,11 +120,12 @@ const ComparisonTableEnhanced = ({
                 stats={stats}
                 totalTokens={totalTokens}
                 selectedRows={selectedRows}
-                onFinalJudgment={handleFinalJudgment}
                 onSelectAll={handleSelectAll}
                 onSelectByStatus={handleSelectByStatus}
-                onBulkUpdate={handleBulkJudgmentUpdate} // ★ Pass handler
+                onBulkUpdate={handleBulkJudgmentUpdate}
                 filteredData={filteredData}
+                onSaveDraft={handleSaveDraft} // ★ NEW: Save Draft handler
+                pendingCount={Object.keys(pendingJudgments).length} // ★ NEW: Pending count
             />
 
             <div
@@ -129,9 +133,9 @@ const ComparisonTableEnhanced = ({
                 style={{
                     flex: 1,
                     overflow: 'auto',
-                    background: '#1f1f2f',
+                    background: '#ffffff',
                     borderRadius: '8px',
-                    border: '1px solid #2a2a3a',
+                    border: '1px solid #e2e8f0',
                     maxHeight: 'calc(100vh - 250px)' // Ensure scrollbar is visible
                 }}
             >
@@ -144,6 +148,8 @@ const ComparisonTableEnhanced = ({
                     <ComparisonTableHeader
                         statusFilter={statusFilter}
                         setStatusFilter={setStatusFilter}
+                        finalJudgmentFilter={finalJudgmentFilter} // ★ NEW
+                        setFinalJudgmentFilter={setFinalJudgmentFilter} // ★ NEW
                         docFilter={docFilter}
                         setDocFilter={setDocFilter}
                         selectedRows={selectedRows}
@@ -163,6 +169,7 @@ const ComparisonTableEnhanced = ({
                                 setEditValue={setEditValue}
                                 userCorrections={userCorrections}
                                 finalJudgments={finalJudgments}
+                                pendingJudgments={pendingJudgments} // ★ NEW: 임시 판단 전달
                                 onRowSelect={handleRowSelect}
                                 onCellClick={handleCellClick}
                                 onCellDoubleClick={handleCellDoubleClick}

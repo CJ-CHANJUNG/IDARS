@@ -8,6 +8,7 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
     const { finalJudgments, setFinalJudgments } = useProject(); // Use global state
 
     const [statusFilter, setStatusFilter] = useState('all');
+    const [finalJudgmentFilter, setFinalJudgmentFilter] = useState('all'); // ★ NEW: 최종판단 필터
     const [docFilter, setDocFilter] = useState('');
     const [editingCell, setEditingCell] = useState(null);
     const [editValue, setEditValue] = useState('');
@@ -15,7 +16,7 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
     // const [finalJudgments, setFinalJudgments] = useState({}); // Removed local state
     const initializedRef = useRef(false);
 
-    // ★ Auto-populate finalJudgments from 1차 판단 (only once when data first loads and global state is empty)
+    // ★ Load ONLY user-confirmed finalJudgments (from final_status), NOT auto_comparison
     useEffect(() => {
         // Check if data is "real" (has actual status or final_status), not just default 'ready' placeholders
         const hasValidData = data && data.length > 0 && data.some(item =>
@@ -23,42 +24,17 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
         );
 
         if (hasValidData && (!initializedRef.current || Object.keys(finalJudgments).length === 0)) {
-            console.log('[useComparisonTable] Initializing finalJudgments from loaded data');
+            console.log('[useComparisonTable] Loading saved finalJudgments from final_status only');
             const initialJudgments = {};
             const initialCorrections = {};
 
             data.forEach(item => {
                 const billingDoc = item.billing_document;
 
-                // ★ FIX: Only initialize if not already in global state (preserve in-memory edits)
-                if (!finalJudgments[billingDoc]) {
-                    // Prioritize saved draft (final_status) over system judgment (auto_comparison)
-                    let autoStatus = item.final_status || item.auto_comparison?.status;
-
-                    // ★ Infer 'no_evidence' if BL data is missing and no final status is set
-                    if (!item.final_status && (!item.bl_data || Object.keys(item.bl_data).length === 0)) {
-                        autoStatus = 'no_evidence';
-                    }
-
-                    if (item.final_status) {
-                        console.log(`[DEBUG] Found final_status for ${billingDoc}: ${item.final_status}`);
-                    }
-
-                    // Map auto status to final judgment value
-                    let judgment = '';
-                    if (autoStatus === 'complete_match') {
-                        judgment = 'complete_match'; // Use exact status codes for consistency
-                    } else if (autoStatus === 'partial_error') {
-                        judgment = 'partial_error';
-                    } else if (autoStatus === 'review_required') {
-                        judgment = 'review_required';
-                    } else if (autoStatus === 'no_evidence') {
-                        judgment = 'no_evidence';
-                    }
-
-                    if (judgment) {
-                        initialJudgments[billingDoc] = judgment;
-                    }
+                // ★ ONLY load final_status (user-confirmed judgments), NOT auto_comparison
+                if (!finalJudgments[billingDoc] && item.final_status) {
+                    console.log(`[DEBUG] Loading final_status for ${billingDoc}: ${item.final_status}`);
+                    initialJudgments[billingDoc] = item.final_status;
                 }
 
                 // Load user corrections (Always load since local state resets on mount)
@@ -67,9 +43,9 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
                 }
             });
 
-            console.log('[useComparisonTable] Initial judgments:', Object.keys(initialJudgments).length, 'items');
+            console.log('[useComparisonTable] Loaded judgments:', Object.keys(initialJudgments).length, 'items');
 
-            // Only update if we have something to set, or if we want to ensure we're synced
+            // Only update if we have something to set
             if (Object.keys(initialJudgments).length > 0) {
                 setFinalJudgments(prev => ({ ...prev, ...initialJudgments }));
             }
@@ -77,7 +53,7 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
                 setUserCorrections(prev => ({ ...prev, ...initialCorrections }));
             }
 
-            // Mark as initialized only if we actually processed valid data
+            // Mark as initialized
             initializedRef.current = true;
         }
     }, [data, setFinalJudgments]); // Removed finalJudgments from dependency to avoid loops, we use functional update
@@ -96,6 +72,8 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
 
     // Filtering logic
     let filteredData = data;
+
+    // ★ 1차 판단 필터
     if (statusFilter !== 'all') {
         filteredData = filteredData.filter(item => {
             let status = item.auto_comparison?.status || item.final_status;
@@ -111,6 +89,32 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
             return status === statusFilter;
         });
     }
+
+    // ★ 최종판단 필터 (NEW)
+    if (finalJudgmentFilter !== 'all') {
+        console.log('[FILTER DEBUG] finalJudgmentFilter:', finalJudgmentFilter);
+        console.log('[FILTER DEBUG] Total data:', data.length);
+        console.log('[FILTER DEBUG] finalJudgments:', finalJudgments);
+
+        filteredData = filteredData.filter(item => {
+            const judgment = finalJudgments[item.billing_document];
+
+            // "pending" = 아직 판단 안 한 것들 (값이 없거나 빈 문자열)
+            if (finalJudgmentFilter === 'pending') {
+                const isPending = !judgment || judgment === '';
+                if (isPending) {
+                    console.log('[FILTER DEBUG] Pending:', item.billing_document, 'judgment:', judgment);
+                }
+                return isPending;
+            }
+
+            return judgment === finalJudgmentFilter;
+        });
+
+        console.log('[FILTER DEBUG] Filtered count:', filteredData.length);
+    }
+
+    // 전표번호 필터
     if (docFilter) {
         filteredData = filteredData.filter(item =>
             item.billing_document?.includes(docFilter)
@@ -160,9 +164,12 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
         setEditValue('');
     };
 
+    const [pendingJudgments, setPendingJudgments] = useState({}); // ★ 임시 판단 (노란색 표시용)
+
     const handleFinalJudgmentChange = (billingDoc, value) => {
-        console.log('[useComparisonTable] Final judgment changed:', billingDoc, value);
-        setFinalJudgments(prev => ({
+        console.log('[useComparisonTable] Pending judgment changed (yellow highlight):', billingDoc, value);
+        // ★ 임시 state에 저장 (노란색 표시, Save Draft로 확정)
+        setPendingJudgments(prev => ({
             ...prev,
             [billingDoc]: value
         }));
@@ -175,7 +182,8 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
             return;
         }
 
-        setFinalJudgments(prev => {
+        // ★ 임시 state에 저장 (노란색 표시, Save Draft로 확정)
+        setPendingJudgments(prev => {
             const newJudgments = { ...prev };
             selectedRows.forEach(docId => {
                 newJudgments[docId] = status;
@@ -188,6 +196,29 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
 
     const getCorrectedValue = (billingDoc, field, ocrValue) => {
         return userCorrections[billingDoc]?.[field] || ocrValue;
+    };
+
+    // ★ 임시 판단을 실제 finalJudgments로 확정하는 함수
+    const confirmPendingJudgments = (selectedDocIds) => {
+        console.log('[useComparisonTable] Confirming pending judgments for selected docs:', selectedDocIds);
+        setFinalJudgments(prev => {
+            const confirmed = { ...prev };
+            selectedDocIds.forEach(docId => {
+                if (pendingJudgments[docId]) {
+                    confirmed[docId] = pendingJudgments[docId];
+                }
+            });
+            return confirmed;
+        });
+
+        // 확정된 항목은 pendingJudgments에서 제거
+        setPendingJudgments(prev => {
+            const remaining = { ...prev };
+            selectedDocIds.forEach(docId => {
+                delete remaining[docId];
+            });
+            return remaining;
+        });
     };
 
     // Utility functions
@@ -232,6 +263,8 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
     return {
         statusFilter,
         setStatusFilter,
+        finalJudgmentFilter, // ★ NEW
+        setFinalJudgmentFilter, // ★ NEW
         docFilter,
         setDocFilter,
         editingCell,
@@ -240,6 +273,8 @@ export const useComparisonTable = (data, selectedRows, viewMode = 'basic') => {
         setEditValue,
         userCorrections,
         finalJudgments,
+        pendingJudgments, // ★ NEW: 임시 판단 (확정 전)
+        confirmPendingJudgments, // ★ NEW: 임시 판단 확정 함수
         filteredData,
         stats,
         totalTokens,

@@ -95,12 +95,12 @@ export const ProjectProvider = ({ children }) => {
         }
     }, []);
 
-    // Initialize evidence data when confirmed data is loaded
+    // Initialize/update evidence data when confirmed data changes
     useEffect(() => {
-        if (confirmedData && confirmedData.length > 0 && evidenceData.length === 0) {
-            // Find Billing Document Column
+        if (confirmedData && confirmedData.length > 0) {
+            // Find Billing Document Column (includes D-term 'Billing No.')
             const firstRow = confirmedData[0];
-            const possibleCols = ['Billing Document', 'BillingDocument', '전표번호', 'Document Number', 'Invoice Number'];
+            const possibleCols = ['Billing No.', 'Billing Document', 'BillingDocument', '전표번호', 'Document Number', 'Invoice Number'];
             let billingCol = possibleCols.find(col => col in firstRow);
 
             if (!billingCol) {
@@ -111,10 +111,26 @@ export const ProjectProvider = ({ children }) => {
                 );
             }
 
+            // Find other important columns
+            const findColumn = (possibleNames) => {
+                return possibleNames.find(name => name in firstRow) || null;
+            };
+
+            const billingDateCol = findColumn(['Billing Date', 'BillingDate', '청구일', 'Invoice Date']);
+            const ataCol = findColumn(['ATA Date', 'ATA', 'Actual Time of Arrival', '실제도착일']);
+            const etaCol = findColumn(['ETA Date', 'ETA', 'Estimated Time of Arrival', '예상도착일']);
+            const customerCol = findColumn(['Customer Desc.', 'Customer', 'Ship-to party', 'Ship to Party', 'ShipToParty', '인도처', '선적처', 'Sold-To Party', 'Sold to Party', 'SoldToParty', '판매처', '고객']);
+            const incotermsCol = findColumn(['SO Inco', 'Incoterms', 'Incoterm', 'Inco', 'Incoterms1']);
+
             if (billingCol) {
                 const initialEvidence = confirmedData.map((row, index) => ({
                     id: index + 1,
                     billingDocument: row[billingCol],
+                    billingDate: billingDateCol ? row[billingDateCol] : '',
+                    ata: ataCol ? row[ataCol] : '',
+                    eta: etaCol ? row[etaCol] : '',
+                    customer: customerCol ? row[customerCol] : '',
+                    incoterms: incotermsCol ? row[incotermsCol] : '',
                     evidenceStatus: row.evidence_status?.status === 'collected' ? '완료' : '미수집',
                     Bill_of_Lading: '',
                     Commercial_Invoice: '',
@@ -131,6 +147,9 @@ export const ProjectProvider = ({ children }) => {
                 }));
                 setEvidenceData(initialEvidence);
             }
+        } else if (confirmedData && confirmedData.length === 0) {
+            // Clear evidence data when confirmed data is cleared (unconfirmed)
+            setEvidenceData([]);
         }
     }, [confirmedData]);
 
