@@ -25,7 +25,9 @@ CORS(app)
 
 # Register API blueprints (AFTER app creation)
 from api.step3_integrated_api import step3_integrated_bp
+from api.step3_dterm_api import step3_dterm_bp
 app.register_blueprint(step3_integrated_bp)
+app.register_blueprint(step3_dterm_bp)
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'Data', 'raw')

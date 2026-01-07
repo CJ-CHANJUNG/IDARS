@@ -440,13 +440,13 @@ const Step2EvidenceCollection = () => {
     };
 
     return (
-        <div className="dp-card">
+        <div className="dp-card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 85px)' }}>
             {showDownloadProgress && (
                 <ProgressBar
                     progress={downloadProgress}
                 />
             )}
-            <div className="dp-dashboard-header" style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="dp-dashboard-header" style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <div>
                     <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.5rem' }}>Step 2: Evidence Collection</h1>
                     <p style={{ color: '#64748b' }}>Manage evidence documents and split status.</p>
@@ -482,7 +482,7 @@ const Step2EvidenceCollection = () => {
             </div>
 
             {/* Summary Stats */}
-            <div className="dp-summary-bar" style={{ margin: '1.5rem', width: 'auto' }}>
+            <div className="dp-summary-bar" style={{ margin: '1.5rem', width: 'auto', flexShrink: 0 }}>
                 <div className="dp-summary-item">
                     <span className="dp-summary-label">Total:</span>
                     <span className="dp-summary-value">{evidenceData.length}</span>

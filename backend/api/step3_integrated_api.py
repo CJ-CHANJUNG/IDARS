@@ -73,6 +73,7 @@ def extract_and_compare(project_id):
         step1_data = df.to_dict('records')
         
         # === 2. Extract from PDFs using Smart Engine ===
+        # === 2. Extract from PDFs using Smart Engine ===
         sys.path.append(os.path.join(BACKEND_DIR, '..', 'Modules', 'Parser'))
         from smart_extraction_engine import SmartExtractionEngine
         

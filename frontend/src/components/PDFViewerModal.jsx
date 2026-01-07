@@ -187,23 +187,41 @@ const PDFViewerModal = ({ isOpen, onClose, files = [], title, onDelete, highligh
                         backgroundColor: '#525659'
                     }}>
                         {currentFile ? (
-                            <div style={{ position: 'relative' }}>
-                                <Document
-                                    file={currentFile.url}
-                                    onLoadSuccess={onDocumentLoadSuccess}
-                                    loading={<div style={{ color: 'white' }}>Loading PDF...</div>}
-                                    error={<div style={{ color: 'white' }}>Failed to load PDF.</div>}
-                                >
-                                    <Page
-                                        pageNumber={pageNumber}
-                                        scale={scale}
-                                        onLoadSuccess={onPageLoadSuccess}
-                                        renderTextLayer={true}
-                                        renderAnnotationLayer={true}
-                                    />
-                                </Document>
-                                {highlightCoordinates && getHighlightStyle() && (
-                                    <div style={getHighlightStyle()} />
+                            <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                                {currentFile.filename.toLowerCase().match(/\.(png|jpg|jpeg|gif|bmp)$/) ? (
+                                    <div style={{ overflow: 'auto', maxHeight: '100%', display: 'flex', justifyContent: 'center' }}>
+                                        <img
+                                            src={currentFile.url}
+                                            alt={currentFile.filename}
+                                            style={{
+                                                maxWidth: '100%',
+                                                height: 'auto',
+                                                transform: `scale(${scale})`,
+                                                transformOrigin: 'top center',
+                                                transition: 'transform 0.1s ease-out'
+                                            }}
+                                        />
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Document
+                                            file={currentFile.url}
+                                            onLoadSuccess={onDocumentLoadSuccess}
+                                            loading={<div style={{ color: 'white' }}>Loading PDF...</div>}
+                                            error={<div style={{ color: 'white' }}>Failed to load PDF.</div>}
+                                        >
+                                            <Page
+                                                pageNumber={pageNumber}
+                                                scale={scale}
+                                                onLoadSuccess={onPageLoadSuccess}
+                                                renderTextLayer={true}
+                                                renderAnnotationLayer={true}
+                                            />
+                                        </Document>
+                                        {highlightCoordinates && getHighlightStyle() && (
+                                            <div style={getHighlightStyle()} />
+                                        )}
+                                    </>
                                 )}
                             </div>
                         ) : (

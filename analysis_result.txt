@@ -1,0 +1,68 @@
+✅ D-Term Engine: Gemini API initialized
+Found 3 sample files.
+
+
+==================================================
+Analyzing: 94511241_RANA.png
+==================================================
+[Raw Text Snippet]:
+-. MV. RANA
+
+LDG E(A)TA E(A)TD
+KWANGYANG 09/27 16:00LT | 10/05 17:28LT
+POHANG 10/06 10:30LT | 10/15 17:12LT
+DISCHG E(A)TA E(A)TD
+TANGIER 12/06 02:48LT | 12/07 12:48LT
+SAGUNTO 12/09 12/11
+LEIXOES 12/14 12/22
+MARIN 12/23 12/25
+BILBAO 12/27 ‘26/01/03
+(IAGW WP)
+
+**VSL SAIL VIA CAPE OF GOOD HOPE
+
+**TANGIER - 431 SPACE
+
+MV. RANA
+
+H2EO
+Ta.
+
+39,915 DWT ON 10.75 M DRAFT
+
+BLT 2015 FLAG : LIBERIA IMO NO. : 9693290
+GT/NT: 25,546 / 13,672
+LOA 179.93 ; BEAM 31.99
+
+HO/HA 5/5
+
+2 ld}o] =44/tg! xIel
+
+
+
+[Running Gemini Extraction...]
+📄 D-Term Processing: 94511241_RANA.png
+Result: {'slip_id': 'TEST_SLIP_ID', 'file_name': '94511241_RANA.png', 'document_type': 'Unknown', 'arrival_date': None, 'date_confidence': 0.5, 'reasoning': "The document provides vessel schedules and port information (ETA/ETD for various locations like Tangier, Sagunto, etc.). However, it does not contain an explicit 'Arrival Date' or 'Delivery Date' related to the final consignee. The provided information focuses on the vessel's journey rather than the cargo's final delivery.", 'evidence_text': None}
+
+
+==================================================
+Analyzing: 94512189_SSI AURORA.pdf
+==================================================
+[Raw Text Snippet]:
+
+
+[Running Gemini Extraction...]
+📄 D-Term Processing: 94512189_SSI AURORA.pdf
+Result: {'slip_id': 'TEST_SLIP_ID', 'file_name': '94512189_SSI AURORA.pdf', 'document_type': 'Email', 'arrival_date': '2025-12-04', 'date_confidence': 0.95, 'reasoning': "The email was sent on 2025-12-04. However, this email does not explicitly confirm the arrival or delivery of cargo, it serves as a schedule update.  The email date is used as the 'arrival_date', but 'is_proof_of_arrival' is set to false.", 'evidence_text': 'DATE: 2025/12/04'}
+
+
+==================================================
+Analyzing: 94512193_SSI AURORA.pdf
+==================================================
+[Raw Text Snippet]:
+
+
+[Running Gemini Extraction...]
+📄 D-Term Processing: 94512193_SSI AURORA.pdf
+❌ File Processing Error: 'list' object has no attribute 'get'
+Result: {'slip_id': 'TEST_SLIP_ID', 'file_name': '94512193_SSI AURORA.pdf', 'error': "'list' object has no attribute 'get'"}

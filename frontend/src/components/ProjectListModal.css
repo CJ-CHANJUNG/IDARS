@@ -64,3 +64,64 @@
     padding: 4px 12px;
     font-size: 0.875rem;
 }
+
+.modal-content {
+    position: relative;
+    /* Ensure overlay stays within modal */
+}
+
+.delete-confirm-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    border-radius: 8px;
+    backdrop-filter: blur(2px);
+}
+
+.delete-confirm-box {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    text-align: center;
+    max-width: 90%;
+    width: 320px;
+    animation: popIn 0.2s ease-out;
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.delete-confirm-box h3 {
+    margin-top: 0;
+    color: #1f2937;
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.delete-confirm-box p {
+    color: #4b5563;
+    margin-bottom: 1.5rem;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}

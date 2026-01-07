@@ -139,7 +139,8 @@
 .dp-table-wrapper {
     overflow-x: auto;
     overflow-y: auto;
-    max-height: 600px;
+    flex: 1;
+    min-height: 0;
     width: 100%;
     position: relative;
     border: 1px solid #e2e8f0;

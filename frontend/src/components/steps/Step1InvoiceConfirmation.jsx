@@ -293,19 +293,19 @@ const Step1InvoiceConfirmation = () => {
     };
 
     return (
-        <div className="dp-card">
+        <div className="dp-card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 85px)' }}>
             {showProgress && (
                 <ProgressBar
                     progress={progressData}
                 />
             )}
-            <div className="dp-dashboard-header" style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="dp-dashboard-header" style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <div>
                     <h1 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.25rem' }}>Step 1: Invoice Confirmation</h1>
                     <p style={{ color: '#64748b', fontSize: '0.875rem', margin: 0 }}>Review and confirm imported invoice data.</p>
                 </div>
             </div>
-            <div className="preview-tabs" style={{ padding: '0 1.5rem', marginTop: '0', borderBottom: 'none' }}>
+            <div className="preview-tabs" style={{ padding: '0 1.5rem', marginTop: '0', borderBottom: 'none', flexShrink: 0 }}>
                 <button
                     className={`preview-tab ${activeTab === 'imported' ? 'active' : ''}`}
                     onClick={() => setActiveTab('imported')}
@@ -322,10 +322,10 @@ const Step1InvoiceConfirmation = () => {
                 </button>
             </div>
 
-            <div className="tab-content">
+            <div className="tab-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {activeTab === 'imported' && (
                     <>
-                        <div className="dp-toolbar" style={{ padding: '0.5rem 1.5rem' }}>
+                        <div className="dp-toolbar" style={{ padding: '0.5rem 1.5rem', flexShrink: 0 }}>
                             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
                                 <button
                                     className={`dp-toggle ${isEditMode ? 'active' : ''}`}
@@ -393,15 +393,17 @@ const Step1InvoiceConfirmation = () => {
                             )}
                         </div>
 
-                        <LedgerTable
-                            ref={tableRef}
-                            data={ledgerData}
-                            onDataChange={onDataChange}
-                            isLoading={isLoading}
-                            visibleColumns={visibleColumns}
-                            onColumnReorder={handleColumnReorder}
-                            isEditMode={isEditMode}
-                        />
+                        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+                            <LedgerTable
+                                ref={tableRef}
+                                data={ledgerData}
+                                onDataChange={onDataChange}
+                                isLoading={isLoading}
+                                visibleColumns={visibleColumns}
+                                onColumnReorder={handleColumnReorder}
+                                isEditMode={isEditMode}
+                            />
+                        </div>
                     </>
                 )}
                 {activeTab === 'confirmed' && (

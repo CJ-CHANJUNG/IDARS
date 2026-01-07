@@ -45,9 +45,9 @@ const Step3DataExtraction = () => {
     } = useStep3Handlers(step3SelectedRows, setStep3SelectedRows, setExtractionProgress); // ★ Pass setter
 
     return (
-        <div className="dp-card">
+        <div className="dp-card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 85px)' }}>
             {/* Header */}
-            <div className="dp-dashboard-header" style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="dp-dashboard-header" style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <div>
                     <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e293b', marginBottom: '0.5rem' }}>Step 3: Data Extraction & Comparison</h1>
                     <p style={{ color: '#64748b' }}>Extract data from evidence and compare with ledger.</p>
@@ -83,7 +83,7 @@ const Step3DataExtraction = () => {
                 </div>
             </div>
 
-            <div className="workspace-content" style={{ padding: '1.5rem', height: 'calc(100vh - 180px)', overflow: 'auto', background: 'white' }}>
+            <div className="workspace-content" style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'white' }}>
                 {/* Progress Bar */}
                 {extractionProgress && extractionProgress.status === 'running' && (
                     <div style={{ marginBottom: '1.5rem' }}>

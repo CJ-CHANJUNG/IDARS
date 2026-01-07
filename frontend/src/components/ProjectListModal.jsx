@@ -30,18 +30,27 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
         }
     };
 
-    const handleDelete = async (projectId, e) => {
+    const [deleteTargetId, setDeleteTargetId] = useState(null); // 삭제 대상 ID 상태
+
+    // 삭제 버튼 클릭 시 (확인 모달 띄우기)
+    const handleDeleteClick = (projectId, e) => {
         e.stopPropagation();
-        if (!confirm('정말로 이 프로젝트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+        setDeleteTargetId(projectId);
+    };
+
+    // 실제 삭제 실행
+    const confirmDelete = async () => {
+        if (!deleteTargetId) return;
 
         setIsLoading(true);
         try {
-            const response = await fetch(`/api/projects/${projectId}`, {
+            const response = await fetch(`/api/projects/${deleteTargetId}`, {
                 method: 'DELETE'
             });
             const result = await response.json();
 
             if (response.ok) {
+                // alert('프로젝트가 삭제되었습니다.'); // UX상 모달 닫히면서 목록 갱신되면 충분
                 fetchProjects();
             } else {
                 alert('삭제 실패: ' + result.error);
@@ -51,6 +60,7 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
             alert('삭제 중 오류가 발생했습니다.');
         } finally {
             setIsLoading(false);
+            setDeleteTargetId(null); // 확인 모달 닫기
         }
     };
 
@@ -83,6 +93,31 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
     return (
         <div className="modal-overlay">
             <div className="modal-content project-list-modal">
+                {/* 커스텀 삭제 확인 모달 오버레이 */}
+                {deleteTargetId && (
+                    <div className="delete-confirm-overlay" onClick={() => setDeleteTargetId(null)}>
+                        <div className="delete-confirm-box" onClick={(e) => e.stopPropagation()}>
+                            <h3>🚨 프로젝트 삭제</h3>
+                            <p>정말로 삭제하시겠습니까?<br />삭제된 데이터는 복구할 수 없습니다.</p>
+                            <div className="confirm-actions">
+                                <button
+                                    className="action-button secondary"
+                                    onClick={() => setDeleteTargetId(null)}
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    className="action-button danger"
+                                    onClick={confirmDelete}
+                                    style={{ backgroundColor: '#ef4444', color: 'white' }}
+                                >
+                                    삭제 확인
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="modal-header">
                     <h2>기존 프로젝트 불러오기</h2>
                     <button className="close-button" onClick={onClose}>×</button>
@@ -99,6 +134,7 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
                                     border: filterType === 'all' ? '2px solid #2563eb' : '1px solid #d1d5db',
                                     borderRadius: '6px',
                                     backgroundColor: filterType === 'all' ? '#eff6ff' : 'white',
+                                    color: '#1f2937', // Text color fixed
                                     cursor: 'pointer',
                                     fontSize: '0.875rem',
                                     fontWeight: filterType === 'all' ? '600' : '400'
@@ -114,6 +150,7 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
                                     border: filterType === 'sales_evidence' ? '2px solid #2563eb' : '1px solid #d1d5db',
                                     borderRadius: '6px',
                                     backgroundColor: filterType === 'sales_evidence' ? '#eff6ff' : 'white',
+                                    color: '#1f2937', // Text color fixed
                                     cursor: 'pointer',
                                     fontSize: '0.875rem',
                                     fontWeight: filterType === 'sales_evidence' ? '600' : '400'
@@ -129,6 +166,7 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
                                     border: filterType === 'dterm_arrival' ? '2px solid #dc2626' : '1px solid #d1d5db',
                                     borderRadius: '6px',
                                     backgroundColor: filterType === 'dterm_arrival' ? '#fef2f2' : 'white',
+                                    color: '#1f2937', // Text color fixed
                                     cursor: 'pointer',
                                     fontSize: '0.875rem',
                                     fontWeight: filterType === 'dterm_arrival' ? '600' : '400'
@@ -139,7 +177,7 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
                         </div>
                     )}
 
-                    {isLoading ? (
+                    {isLoading && !deleteTargetId ? (
                         <div className="loading-spinner">Loading...</div>
                     ) : error ? (
                         <div className="error-message">{error}</div>
@@ -190,7 +228,7 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
                                                 <td>
                                                     <span className={`status-badge ${project.status}`}>
                                                         {project.status === 'completed' ? '완료' :
-                                                         project.status === 'new' ? '신규' : '진행중'}
+                                                            project.status === 'new' ? '신규' : '진행중'}
                                                     </span>
                                                 </td>
                                                 <td>
@@ -203,7 +241,7 @@ const ProjectListModal = ({ isOpen, onClose, onLoadProject }) => {
                                                     </button>
                                                     <button
                                                         className="action-button danger small"
-                                                        onClick={(e) => handleDelete(project.id, e)}
+                                                        onClick={(e) => handleDeleteClick(project.id, e)}
                                                         style={{ backgroundColor: '#ef4444', color: 'white' }}
                                                     >
                                                         삭제

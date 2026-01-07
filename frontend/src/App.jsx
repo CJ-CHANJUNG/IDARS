@@ -8,6 +8,7 @@ import Step1DtermInvoiceConfirmation from './components/steps/Step1DtermInvoiceC
 import Step2EvidenceCollection from './components/steps/Step2EvidenceCollection'
 import Step2DtermEvidenceCollection from './components/steps/Step2DtermEvidenceCollection'
 import Step3DataExtraction from './components/steps/Step3DataExtraction'
+import Step3DtermDataExtraction from './components/steps/Step3DtermDataExtraction' // [NEW] D-Term Component
 import ResultsDashboard from './components/ResultsDashboard'
 import Settings from './components/Settings'
 import DesignPreview from './components/DesignPreview'
@@ -151,7 +152,16 @@ function AppContent() {
               )}
 
               {/* ★ Step 3: 추후 분기 예정 */}
-              {sidebarView === 'step3' && <Step3DataExtraction />}
+              {/* ★ Step 3: 워크플로우별 분기 */}
+              {sidebarView === 'step3' && (
+                project?.workflow_type === 'dterm_arrival'
+                  ? <Step3DtermDataExtraction
+                    projectId={project.id}
+                    onNext={() => setSidebarView('dashboard')}
+                    onBack={() => setSidebarView('step2')}
+                  />
+                  : <Step3DataExtraction />
+              )}
 
               {/* Results Dashboard (replaced Step 4) */}
               {sidebarView === 'dashboard' && <ResultsDashboard project={project} />}
