@@ -136,7 +136,7 @@ const ComparisonTableEnhanced = ({
                     background: '#ffffff',
                     borderRadius: '8px',
                     border: '1px solid #e2e8f0',
-                    maxHeight: 'calc(100vh - 250px)' // Ensure scrollbar is visible
+                    maxHeight: 'calc(100vh - 180px)' // Maximized for better space utilization
                 }}
             >
                 <table style={{

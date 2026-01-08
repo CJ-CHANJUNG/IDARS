@@ -78,11 +78,28 @@ class SmartExtractionEngine:
             from Config.api_config import GEMINI_API_KEY
             genai.configure(api_key=GEMINI_API_KEY)
             
+            # ✅ 프롬프트 설정 로드 (NEW)
+            prompt_path = Path(__file__).parent.parent.parent / 'Config' / 'smart_prompts.json'
+            if prompt_path.exists():
+                with open(prompt_path, 'r', encoding='utf-8') as f:
+                    self.prompts = json.load(f)
+                print("✅ Smart Prompts 로드 완료")
+            else:
+                self.prompts = None
+                print("⚠️ smart_prompts.json 없음, 기본 프롬프트 사용")
+            
             # 최신 안정 모델 (사용자 환경에서 2.0 이상 지원 확인됨)
             GEMINI_MODEL_NAME = 'models/gemini-2.0-flash'
             
-            # 시스템 지시사항 (사용자 제안 반영)
-            SYSTEM_INSTRUCTION = """
+            # 시스템 지시사항 (프롬프트 파일 우선, 없으면 기본값)
+            if self.prompts and 'system_instruction' in self.prompts:
+                SYSTEM_INSTRUCTION = self.prompts['system_instruction'].get('content', """
+            당신은 물류 문서(B/L, Invoice) 전문 데이터 추출 엔진입니다. 
+            JSON으로만 응답하며, 날짜 형식(YYYY-MM-DD), 통화 코드 준수 등 데이터 정규화 규칙을 엄격히 따릅니다.
+            수량과 금액은 반드시 숫자 형식으로 추출하고, 쉼표 등은 제거하세요.
+            """)
+            else:
+                SYSTEM_INSTRUCTION = """
             당신은 물류 문서(B/L, Invoice) 전문 데이터 추출 엔진입니다. 
             JSON으로만 응답하며, 날짜 형식(YYYY-MM-DD), 통화 코드 준수 등 데이터 정규화 규칙을 엄격히 따릅니다.
             수량과 금액은 반드시 숫자 형식으로 추출하고, 쉼표 등은 제거하세요.
@@ -267,12 +284,19 @@ class SmartExtractionEngine:
         if not self.gemini_model:
             raise Exception("Gemini API가 초기화되지 않았습니다")
         
-        # 문서 타입별 지시사항
+        # 문서 타입별 지시사항 (프롬프트 파일 우선)
         doc_instruction = ""
-        if doc_type == "BL":
-            doc_instruction = "이 문서는 선하증권(Bill of Lading)입니다. 선박 정보, 운송 정보, Incoterms, 그리고 **중량 정보(Net Weight, Gross Weight)**를 주의 깊게 찾아 추출하세요."
-        elif doc_type == "INVOICE":
-            doc_instruction = "이 문서는 상업송장(Commercial Invoice)입니다. 금액과 거래 정보를 중심으로 추출하세요."
+        if self.prompts and 'doc_type_instructions' in self.prompts:
+            doc_instructions = self.prompts['doc_type_instructions']
+            if doc_type in doc_instructions:
+                doc_instruction = doc_instructions[doc_type].get('content', "")
+        
+        # Fallback: 프롬프트 파일에 없으면 기본값 사용
+        if not doc_instruction:
+            if doc_type == "BL":
+                doc_instruction = "이 문서는 선하증권(Bill of Lading)입니다. 선박 정보, 운송 정보, Incoterms, 그리고 **중량 정보(Net Weight, Gross Weight)**를 주의 깊게 찾아 추출하세요."
+            elif doc_type == "INVOICE":
+                doc_instruction = "이 문서는 상업송장(Commercial Invoice)입니다. 금액과 거래 정보를 중심으로 추출하세요."
         
         # 기대 값(Expected Values) 힌트 추가
         hint_instruction = ""

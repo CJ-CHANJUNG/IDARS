@@ -1,0 +1,131 @@
+{
+    "_metadata": {
+        "version": "1.0.0",
+        "last_updated": "2026-01-08",
+        "engine": "DtermExtractionEngine",
+        "description": "이 파일은 D-Term Extraction Engine(D조건 도착일 추출)에서 사용하는 모든 프롬프트를 관리합니다.",
+        "usage_note": "이 파일을 수정하면 다음 D-Term 검증부터 새 프롬프트가 적용됩니다. 백엔드 재시작이 필요할 수 있습니다."
+    },
+    "system_instruction": {
+        "description": "Gemini 모델 초기화 시 설정되는 시스템 전역 지시사항입니다. D-Term 전용 모델의 역할을 정의합니다.",
+        "usage": "DtermExtractionEngine.__init__() -> _load_configs() -> genai.GenerativeModel(system_instruction=...)",
+        "llm_delivery": "모든 Gemini API 호출 시 자동으로 컨텍스트에 포함됨 (사용자가 볼 수 없는 백그라운드 지시사항)",
+        "editable": true,
+        "content": "Logistics/Trade Finance 문서 전문가. D-Term(DAP/DDP/DAT) 도착 증빙 식별. 화물 최종 도착일 추출. JSON 응답 필수."
+    },
+    "context_validation_template": {
+        "description": "SAP 데이터(TC, SO, Invoice 등)를 기반으로 문서 매칭을 검증하는 컨텍스트 정보입니다. 프롬프트에 동적으로 삽입됩니다.",
+        "usage": "extract_with_gemini_async() 및 extract_with_gemini_vision_async() 함수에서 context 파라미터가 있을 때 생성됨 (Line 186-192, 111-119)",
+        "llm_delivery": "메인 프롬프트의 상단에 **Context Validation Keys** 섹션으로 삽입되어 LLM에 전달됨",
+        "editable": true,
+        "variables": [
+            "tc",
+            "so",
+            "invoice",
+            "registrant",
+            "sales_person",
+            "customer_desc"
+        ],
+        "content": "\n**검증 키:**\n- Primary: TC({tc}), SO({so}), Invoice({invoice})\n- Secondary: 등록자({registrant}), 고객({customer_desc})\n"
+    },
+    "text_extraction_prompt": {
+        "description": "텍스트 기반 도착일 추출 메인 프롬프트입니다. OCR 텍스트에서 도착일을 찾는 규칙을 정의합니다.",
+        "usage": "extract_with_gemini_async() 함수에서 조립됨 (Line 194-236)",
+        "llm_delivery": "모든 변수가 치환된 후 Gemini API에 전달됨. 이것이 LLM이 보는 최종 프롬프트입니다.",
+        "variables": {
+            "filename": "처리 중인 파일명",
+            "context_str": "context_validation_template에서 생성된 컨텍스트 정보",
+            "ocr_text": "PDF에서 추출한 텍스트 (최대 14000자)"
+        },
+        "editable": true,
+        "content": "물류 문서(\"{filename}\") 텍스트 분석.\n\n{context_str}\n\n**목표**: 최종 도착일 추출.\n\n**규칙:**\n\n1. **유연 매칭 (A)**: TC/SO 없으면 Secondary 키 또는 파일명으로 검증. 모호하지만 도착 정보 명확하면 \"Match - Date Only\".\n\n2. **최종 항구 (B)**: 해상운송은 선박 스케줄 확인. 항구 순서 파악, 도착일은 **최종 항구**의 Discharged/ATA. 출발/환적항 무시.\n\n3. **정확 파싱 (C)**: YYYY-MM-DD 형식. \"1000LT\"/\"BERTHED\"/시간/코드 제거. 예: \"22-Nov-2025\" → \"2025-11-22\".\n\n4. **근거 (D)**: 한국어로 간결 명확. 발견 항구/날짜 나열, 선택 이유. 예: \"부산, LA, 뉴욕 발견. 최종지 뉴욕 ATA(12/25) 추출.\"\n\n**JSON:**\n{\n    \"verification_status\": \"Perfect Match|Match - Date Only|Mismatch|Unidentified\",\n    \"matched_identifiers\": [\"발견 키\"],\n    \"extracted_arrival_date\": \"YYYY-MM-DD\",\n    \"date_confidence\": 0.0~1.0,\n    \"doc_category\": \"문서 유형\",\n    \"evidence_text\": \"증거 텍스트\",\n    \"reasoning\": \"한국어 근거\"\n}\n\n**입력:**\n{ocr_text}"
+    },
+    "vision_extraction_prompt": {
+        "description": "이미지 기반 도착일 추출 프롬프트입니다. 텍스트 추출 실패 시 Vision API를 사용하여 이미지에서 직접 분석합니다.",
+        "usage": "extract_with_gemini_vision_async() 함수에서 조립됨 (Line 121-161)",
+        "llm_delivery": "이미지와 함께 Gemini Vision API에 전달됨. LLM이 이미지를 보면서 이 지시사항을 따릅니다.",
+        "trigger_condition": "텍스트 추출 결과의 신뢰도가 0.8 미만이거나 verification_status가 'Unidentified'일 때 (Line 287-289)",
+        "variables": {
+            "filename": "처리 중인 파일명",
+            "context_str": "context_validation_template에서 생성된 컨텍스트 정보"
+        },
+        "editable": true,
+        "content": "문서 이미지 분석 (\"{filename}\").\n\n{context_str}\n\n**목표**: 최종 도착일.\n\n**규칙 1 (A)**: TC/SO 없으면 Secondary 키 또는 파일명 매칭.\n\n**규칙 2 (B)**: 선박 스케줄에서 **최종 하역항** 날짜 선택. 출발/환적항 무시.\n\n**규칙 3 (C)**: YYYY-MM-DD 형식. \"1000LT\"/\"BERTHED\" 제거. 예: \"2025/11/22 0642LT\" → \"2025-11-22\".\n\n**규칙 4 (D)**: 한국어 근거. 모든 항구 나열, 선택 논리. 예: \"부산, 싱가포르, 로테르담 발견. 최종지 로테르담 하역일(12/02) 선택.\"\n\n**JSON:**\n{\n    \"verification_status\": \"Perfect Match|Match - Date Only|Mismatch|Unidentified\",\n    \"matched_identifiers\": [\"발견 키\"],\n    \"extracted_arrival_date\": \"YYYY-MM-DD\",\n    \"date_confidence\": 0.0~1.0,\n    \"doc_category\": \"문서 유형\",\n    \"reasoning\": \"한국어 근거\"\n}"
+    },
+    "directive_explanations": {
+        "description": "프롬프트에 사용된 4가지 핵심 Directive의 상세 설명입니다. 참고용이며 LLM에 직접 전달되지 않습니다.",
+        "llm_delivery": "LLM에 전달되지 않음. 개발자 및 관리자 참고용 문서입니다.",
+        "editable": false,
+        "directives": {
+            "A_Flexible_Matching": {
+                "purpose": "TC/SO 번호가 문서에 없어도 다른 정보(등록자명, 고객명, 파일명)로 매칭 시도",
+                "example": "파일명이 '94527552_tracking.pdf'이고 SAP의 TC가 '94527552'면 매칭 성공"
+            },
+            "B_Final_Port_Rule": {
+                "purpose": "선박 스케줄에서 여러 항구가 나올 때 **최종 도착 항구**의 날짜만 추출",
+                "example": "부산(11/15) -> 싱가포르(11/20) -> 로테르담(12/02) 중 12/02만 추출",
+                "critical_note": "중간 환적항(Transshipment)이나 출발항(POL)의 날짜를 추출하면 안 됨"
+            },
+            "C_Robust_Parsing": {
+                "purpose": "날짜 형식이 지저분해도 정확히 파싱하여 YYYY-MM-DD로 변환",
+                "example": "'22-Nov-2025 1000LT BERTHED' -> '2025-11-22'"
+            },
+            "D_Korean_Reasoning": {
+                "purpose": "추출 근거를 한국어로 명확히 설명하여 사용자가 검증 가능하도록 함",
+                "example": "스케줄상 부산, LA, 뉴욕 발견. 최종 도착지인 뉴욕의 ATA(12/25)를 추출함."
+            }
+        }
+    },
+    "fallback_config": {
+        "description": "Vision API Fallback 설정입니다. 텍스트 추출 실패 시 이미지 분석으로 전환하는 조건을 정의합니다.",
+        "usage": "process_single_pdf_async() 함수에서 텍스트 추출 결과 검증 후 (Line 283-300)",
+        "llm_delivery": "LLM에 직접 전달되지 않음. Vision API 호출 여부를 결정하는 로직에서만 사용됨.",
+        "editable": true,
+        "trigger_conditions": {
+            "verification_status_unidentified": true,
+            "confidence_threshold": 0.8,
+            "description": "verification_status가 'Unidentified'이거나 date_confidence가 0.8 미만일 때 Vision API 시도"
+        },
+        "pages_to_analyze": 2,
+        "image_resolution_matrix": 2.0,
+        "note": "물류 문서는 보통 1~2페이지에 핵심 정보(특히 2페이지 스케줄)가 있음"
+    },
+    "ocr_config": {
+        "description": "OCR 관련 설정입니다. 스캔 문서 감지 및 고품질 OCR 실행 조건을 정의합니다.",
+        "usage": "process_single_pdf_async() 함수에서 페이지별 텍스트 추출 시 (Line 270-275)",
+        "llm_delivery": "LLM에 직접 전달되지 않음. OCR 실행 여부를 결정하는 로직에서만 사용됨.",
+        "editable": true,
+        "threshold": 50,
+        "threshold_description": "페이지 텍스트가 50자 미만이면 스캔 문서로 간주하고 Tesseract OCR 실행",
+        "tesseract_lang": "eng+kor",
+        "zoom_matrix": 3.0,
+        "note": "zoom_matrix가 클수록 OCR 정확도 향상, 하지만 처리 시간 증가"
+    },
+    "output_format": {
+        "description": "최종 출력 형식 정의입니다. LLM 응답을 어떻게 가공하여 반환할지 정의합니다.",
+        "usage": "process_single_pdf_async() 함수의 결과 포맷팅 (Line 303-314)",
+        "llm_delivery": "LLM에 직접 전달되지 않음. LLM 응답을 받은 후 결과 구조화에만 사용됨.",
+        "editable": false,
+        "fields": {
+            "slip_id": "전표 ID",
+            "file_name": "파일명",
+            "document_type": "LLM이 판단한 문서 카테고리 (doc_category)",
+            "arrival_date": "추출된 도착일 (extracted_arrival_date)",
+            "date_confidence": "날짜 신뢰도 (0.0~1.0)",
+            "reasoning": "추출 근거 (한국어)",
+            "evidence_text": "증거 텍스트 (원문 인용)",
+            "verification_status": "검증 상태 (Perfect Match / Match - Date Only / Mismatch / Unidentified)",
+            "matched_identifiers": "매칭된 식별자 목록",
+            "method": "추출 방법 (text 또는 vision)"
+        }
+    },
+    "processing_config": {
+        "description": "배치 처리 설정입니다. 여러 파일을 병렬로 처리할 때의 동작을 제어합니다.",
+        "usage": "process_project_dterm_async() 함수에서 (Line 324-391)",
+        "llm_delivery": "LLM에 직접 전달되지 않음. 병렬 처리 로직에서만 사용됨.",
+        "editable": true,
+        "semaphore_limit": 5,
+        "chunk_size": 5,
+        "note": "semaphore_limit는 동시 API 호출 수 제한, chunk_size는 한 번에 처리할 파일 수"
+    }
+}

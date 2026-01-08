@@ -47,8 +47,26 @@ class DtermExtractionEngine:
             from Config.api_config import GEMINI_API_KEY
             genai.configure(api_key=GEMINI_API_KEY)
             
-            # 최신 시스템 지시사항
-            SYSTEM_INSTRUCTION = """
+            # ✅ 프롬프트 설정 로드 (NEW)
+            prompt_path = Path(__file__).parent.parent.parent / 'Config' / 'dterm_prompts.json'
+            if prompt_path.exists():
+                with open(prompt_path, 'r', encoding='utf-8') as f:
+                    self.prompts = json.load(f)
+                print("✅ D-Term Prompts 로드 완료")
+            else:
+                self.prompts = None
+                print("⚠️ dterm_prompts.json 없음, 기본 프롬프트 사용")
+            
+            # 시스템 지시사항 (프롬프트 파일 우선)
+            if self.prompts and 'system_instruction' in self.prompts:
+                SYSTEM_INSTRUCTION = self.prompts['system_instruction'].get('content', """
+            You are an expert in Logistics and Trade Finance documents.
+            Your specialization is identifying "Proof of Arrival" or "Proof of Delivery" for D-Term (DAP, DDP, DAT) transactions.
+            Your goal is to find the EXACT date when the cargo arrived at the destination or was received by the consignee.
+            Output must be in pure JSON format.
+            """)
+            else:
+                SYSTEM_INSTRUCTION = """
             You are an expert in Logistics and Trade Finance documents.
             Your specialization is identifying "Proof of Arrival" or "Proof of Delivery" for D-Term (DAP, DDP, DAT) transactions.
             Your goal is to find the EXACT date when the cargo arrived at the destination or was received by the consignee.

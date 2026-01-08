@@ -127,8 +127,8 @@ const ComparisonTableRow = ({
                         // ★ 임시 판단이 있으면 연한 노란색 배경으로 표시 (아직 확정 안됨)
                         background: pendingJudgments?.[billingDoc] ? 'rgba(251, 191, 36, 0.2)' :
                             displayJudgment === 'complete_match' ? 'rgba(16, 185, 129, 0.15)' :
-                            displayJudgment === 'partial_error' ? 'rgba(245, 158, 11, 0.15)' :
-                            displayJudgment === 'review_required' ? 'rgba(239, 68, 68, 0.15)' : '#ffffff',
+                                displayJudgment === 'partial_error' ? 'rgba(245, 158, 11, 0.15)' :
+                                    displayJudgment === 'review_required' ? 'rgba(239, 68, 68, 0.15)' : '#ffffff',
                         color: '#334155',
                         border: pendingJudgments?.[billingDoc] ? '2px solid rgba(251, 191, 36, 0.5)' : '1px solid #cbd5e1'
                     }}

@@ -1,0 +1,116 @@
+{
+    "_metadata": {
+        "version": "1.0.0",
+        "last_updated": "2026-01-08",
+        "engine": "SmartExtractionEngine",
+        "description": "이 파일은 Smart Extraction Engine(BL, Invoice 추출)에서 사용하는 모든 프롬프트를 관리합니다.",
+        "usage_note": "이 파일을 수정하면 다음 추출부터 새 프롬프트가 적용됩니다. 백엔드 재시작이 필요할 수 있습니다."
+    },
+    "system_instruction": {
+        "description": "Gemini 모델 초기화 시 설정되는 시스템 전역 지시사항입니다. 모든 API 호출에 자동으로 포함됩니다.",
+        "usage": "SmartExtractionEngine.__init__() -> _load_configs() -> genai.GenerativeModel(system_instruction=...)",
+        "llm_delivery": "모든 Gemini API 호출 시 자동으로 컨텍스트에 포함됨 (사용자가 볼 수 없는 백그라운드 지시사항)",
+        "editable": true,
+        "content": "물류 문서(B/L, Invoice) 데이터 추출 엔진. JSON 응답 필수. 날짜는 YYYY-MM-DD, 통화 코드 준수, 수량/금액은 숫자(쉼표 제거)."
+    },
+    "doc_type_instructions": {
+        "description": "문서 타입별 추가 지시사항입니다. 메인 프롬프트에 {doc_instruction} 변수로 삽입됩니다.",
+        "usage": "extract_with_gemini_async() 함수 내부에서 doc_type에 따라 선택됨 (Line 272-275)",
+        "llm_delivery": "메인 프롬프트의 상단에 삽입되어 LLM에 전달됨 (사용자 프롬프트의 일부)",
+        "editable": true,
+        "BL": {
+            "doc_type": "Bill of Lading (선하증권)",
+            "content": "선하증권(B/L). 선박/운송 정보, Incoterms, 중량(Net/Gross Weight) 추출."
+        },
+        "INVOICE": {
+            "doc_type": "Commercial Invoice (상업송장)",
+            "content": "상업송장. 금액/거래 정보 중심 추출."
+        }
+    },
+    "hint_instruction_template": {
+        "description": "기대 값(Expected Values)이 있을 때 LLM에게 힌트를 주는 프롬프트입니다. SAP 데이터와 비교할 금액/수량이 있을 때 사용됩니다.",
+        "usage": "extract_with_gemini_async() 함수에서 expected_values 파라미터가 있을 때 동적으로 생성됨 (Line 278-288)",
+        "llm_delivery": "메인 프롬프트의 {hint_instruction} 위치에 삽입됨. total_amount, total_quantity 값이 동적으로 치환됩니다.",
+        "editable": true,
+        "variables": [
+            "total_amount",
+            "total_quantity"
+        ],
+        "content": "\n**[힌트]** 기대값:\n- 총 금액: {total_amount}\n- 총 수량: {total_quantity}\n기대값과 다르면 문서값 추출 후 'notes'에 이유 기록.\n"
+    },
+    "field_prompt_hints": {
+        "description": "특정 필드에 대한 추가 힌트입니다. 필드별 프롬프트 생성 시 자동으로 추가됩니다.",
+        "usage": "extract_with_gemini_async() 함수에서 extraction_fields를 순회하며 필드명에 'incoterms'가 포함되면 힌트 추가 (Line 298-299)",
+        "llm_delivery": "메인 프롬프트의 '추출할 필드' 섹션에 각 필드 설명 뒤에 추가됨",
+        "editable": true,
+        "incoterms": " (예: FOB, CIF, EXW, DDP 등)"
+    },
+    "main_extraction_prompt": {
+        "description": "실제 데이터 추출을 수행하는 메인 프롬프트 템플릿입니다. 모든 변수가 치환된 후 LLM에 전달됩니다.",
+        "usage": "extract_with_gemini_async() 함수에서 조립됨 (Line 351-379)",
+        "llm_delivery": "이 템플릿의 모든 변수가 실제 값으로 치환된 후 Gemini API에 전달됨. 이것이 LLM이 보는 최종 프롬프트입니다.",
+        "variables": {
+            "doc_type": "문서 타입 (BL 또는 INVOICE)",
+            "doc_instruction": "doc_type_instructions에서 선택된 지시사항",
+            "hint_instruction": "expected_values가 있으면 hint_instruction_template, 없으면 빈 문자열",
+            "ocr_text": "PDF에서 추출한 실제 텍스트 (최대 3페이지)",
+            "field_prompts": "extraction_config.json의 필드 정의를 기반으로 동적 생성된 필드 목록",
+            "response_format": "기대하는 JSON 응답 형식 (expected_fields_example 기반)"
+        },
+        "editable": true,
+        "content": "\n{doc_type} 문서 OCR 분석:\n\n{doc_instruction}\n{hint_instruction}\n\n{ocr_text}\n\n**추출 필드:**\n{field_prompts}\n\n**JSON 응답:**\n{{\n  \"document_type\": \"{doc_type}\",\n  \"confidence\": 0.95,\n  \"fields\": {response_format},\n  \"field_confidence\": {{[필드별 신뢰도 0.0~1.0]}},\n  \"evidence\": [{{\"field\": \"total_amount\", \"values\": [100.00, 200.00], \"coordinates\": [[ymin,xmin,ymax,xmax]], \"reason\": \"합계 일치\"}}],\n  \"notes\": \"특이사항/불확실 부분\"\n}}\n"
+    },
+    "n1_matching_retry_prompt": {
+        "description": "N:1 매칭 실패 시 재시도할 때 추가되는 프롬프트입니다. 여러 라인 아이템의 합계가 기대값과 일치해야 하는 경우 사용됩니다.",
+        "usage": "extract_with_gemini_async() 함수에서 검증 실패 시 메인 프롬프트 뒤에 추가됨 (Line 466-471)",
+        "llm_delivery": "기존 메인 프롬프트 뒤에 이 내용이 추가되어 재시도 API 호출 시 전달됨. LLM에게 '이전 시도가 실패했으니 이렇게 해라'는 추가 지시사항입니다.",
+        "trigger_condition": "추출된 total_amount 또는 total_quantity가 expected_values와 다를 때 (is_valid = False)",
+        "variables": [
+            "exp_amount"
+        ],
+        "editable": true,
+        "content": "\n**필수:**\n- `total_amount`는 합계값({exp_amount})으로 설정, 문서 총액 아님.\n- 'evidence'에 조합 설명: \"항목1(100.00)+항목3(200.00)={exp_amount}\".\n- 'notes'에 \"N:1 조합\" 명시.\n"
+    },
+    "preprocessing_config": {
+        "description": "텍스트 전처리 관련 설정입니다. OCR 텍스트를 LLM에 전달하기 전에 정리하는 과정을 제어합니다.",
+        "usage": "extract_with_gemini_async() 함수에서 text_preprocessor 호출 전 (Line 314-317)",
+        "llm_delivery": "LLM에 직접 전달되지 않음. OCR 텍스트를 정리하는 전처리 단계에서만 사용됨.",
+        "editable": true,
+        "enabled": true,
+        "log_message": "🧹 Preprocessing text... (Original: {original_length} chars)\n✨ Preprocessed: {processed_length} chars"
+    },
+    "combination_finder_config": {
+        "description": "N:1 조합 찾기 로직 설정입니다. 여러 금액/수량의 합이 기대값과 일치하는 조합을 Python으로 미리 찾아 LLM에게 힌트를 줍니다.",
+        "usage": "extract_with_gemini_async() 함수에서 expected_values가 있고 combination_finder가 활성화되어 있을 때 (Line 321-349)",
+        "llm_delivery": "조합을 찾으면 hint_instruction에 '💡 Found combination for Amount: ...' 형태로 추가되어 LLM에 전달됨",
+        "editable": true,
+        "enabled": true,
+        "hint_template": "- 💡 Found combination for {field_type}: {combination} = {target}\n",
+        "hint_suffix": "\n**[N:1 MATCHING HINTS]**\n{combo_hint}Use these combinations to verify the total amount/quantity. If they match, extract the individual items as evidence.\n"
+    },
+    "retry_config": {
+        "description": "API 재시도 설정입니다. Gemini API 호출 실패 시 재시도 횟수와 대기 시간을 제어합니다.",
+        "usage": "extract_with_gemini_async() 함수의 재시도 루프 (Line 383-512)",
+        "llm_delivery": "LLM에 직접 전달되지 않음. API 호출 실패 시 재시도 로직에서만 사용됨.",
+        "editable": true,
+        "max_retries": 1,
+        "retry_delay_seconds": 2,
+        "exponential_backoff": true,
+        "quota_exceeded_wait_seconds": 60
+    },
+    "validation_config": {
+        "description": "추출 결과 검증 설정입니다. LLM 응답이 유효한지 확인하는 규칙을 정의합니다.",
+        "usage": "extract_with_gemini_async() 함수의 검증 로직 (Line 424-482)",
+        "llm_delivery": "LLM에 직접 전달되지 않음. LLM 응답을 받은 후 검증 단계에서만 사용됨.",
+        "editable": true,
+        "critical_fields": {
+            "INVOICE": [
+                "total_amount"
+            ],
+            "BL": [
+                "bl_number"
+            ]
+        },
+        "min_text_length_for_validation": 50
+    }
+}

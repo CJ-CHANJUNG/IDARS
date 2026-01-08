@@ -53,4 +53,6 @@ Config/api_config.py
 !jsconfig.json
 !frontend/jsconfig.json
 !Config/extraction_config.json
+!Config/smart_prompts.json
+!Config/dterm_prompts.json
 nul
